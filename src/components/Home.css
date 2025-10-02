@@ -1,0 +1,47 @@
+/* src/components/Home.css */
+.home-container {
+  text-align: center;
+  padding: 3rem 2rem;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.home-container h1 {
+  font-size: 1.8rem;
+  color: #2c3e50;
+  margin-bottom: 1rem;
+}
+
+.home-container p {
+  font-size: 1.1rem;
+  color: #555;
+  margin-bottom: 2rem;
+}
+
+.home-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.home-btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: bold;
+  color: white;
+}
+
+.home-btn.caregiver {
+  background-color: #1abc9c;
+}
+
+.home-btn.doctor {
+  background-color: #3498db;
+}
+
+.auth-links a {
+  color: #8e44ad;
+  font-weight: bold;
+  text-decoration: none;
+}

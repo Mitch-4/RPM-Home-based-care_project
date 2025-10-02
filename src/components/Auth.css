@@ -1,0 +1,42 @@
+/* src/components/Auth.css */
+.auth-container {
+  max-width: 400px;
+  margin: 3rem auto;
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  font-family: 'Segoe UI', sans-serif;
+  text-align: center;
+}
+
+.auth-container h2 {
+  margin-bottom: 1rem;
+}
+
+.auth-container input,
+.auth-container select {
+  width: 100%;
+  margin: 0.5rem 0;
+  padding: 0.7rem;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+
+.auth-container button {
+  margin-top: 1rem;
+  padding: 0.7rem;
+  width: 100%;
+  background-color: #3498db;
+  color: white;
+  font-weight: bold;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.auth-container a {
+  color: #8e44ad;
+  font-weight: bold;
+  text-decoration: none;
+}

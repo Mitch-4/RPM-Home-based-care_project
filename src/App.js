@@ -1,24 +1,71 @@
-import logo from './logo.svg';
-import './App.css';
+// src/App.js
+import React from "react";
+import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
+import Home from "./components/Home";
+import CaregiverDashboard from "./components/CaregiverDashboard";
+import DoctorDashboard from "./components/DoctorDashboard";
+import Login from "./components/Login";
+import Register from "./components/Register";
+import ProtectedRoute from "./components/ProtectedRoute";
+import "./App.css"; // Optional for global styling
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
+    <Router>
+      <div style={{ fontFamily: "Segoe UI, sans-serif" }}>
+        {/* Navigation */}
+        <nav
+          style={{
+            padding: "1rem",
+            backgroundColor: "#f4f4f4",
+            borderBottom: "1px solid #ccc",
+          }}
         >
-          Learn React
-        </a>
-      </header>
-    </div>
+          <Link
+            to="/"
+            style={{
+              marginRight: "1.5rem",
+              fontWeight: "bold",
+              color: "#2c3e50",
+            }}
+          >
+            Home
+          </Link>
+          <Link
+            to="/login"
+            style={{ marginRight: "1rem", color: "#7f8c8d" }}
+          >
+            Login
+          </Link>
+          <Link to="/register" style={{ color: "#8e44ad" }}>
+            Register
+          </Link>
+        </nav>
+
+        {/* Routes */}
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route
+            path="/caregiver"
+            element={
+              <ProtectedRoute>
+                <CaregiverDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/doctor"
+            element={
+              <ProtectedRoute>
+                <DoctorDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+        </Routes>
+      </div>
+    </Router>
   );
 }
 

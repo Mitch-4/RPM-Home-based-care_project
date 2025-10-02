@@ -1,0 +1,173 @@
+/* Theme Variables */
+:root {
+  --bg-color: #ffffff;
+  --text-color: #2c3e50;
+  --section-bg: #ffffff;
+  --tab-bg: #ecf0f1;
+  --tab-hover: #d0e0ea;
+  --tab-active: #1abc9c;
+  --button-bg: #1abc9c;
+  --button-hover: #16a085;
+  --menu-bg: #ffffff;
+}
+
+body.dark-mode {
+  --bg-color: #121212;
+  --text-color: #f1f1f1;
+  --section-bg: #1e1e1e;
+  --tab-bg: #2c3e50;
+  --tab-hover: #34495e;
+  --tab-active: #1abc9c;
+  --button-bg: #1abc9c;
+  --button-hover: #16a085;
+  --menu-bg: #2c2c2c;
+}
+
+/* Base Layout */
+.caregiver-dashboard {
+  display: flex;
+  flex-direction: column;
+  font-family: 'Segoe UI', sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  min-height: 100vh;
+  padding: 2rem;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Top Controls */
+.top-controls {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.profile-info {
+  font-weight: bold;
+  color: var(--text-color);
+}
+
+/* Patient Selector */
+.patient-selector {
+  margin-bottom: 1.5rem;
+}
+
+.patient-selector select {
+  padding: 0.6rem;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+  background-color: var(--section-bg);
+  color: var(--text-color);
+}
+
+/* Tabs Section */
+.tabs {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.tabs button {
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  border: none;
+  background-color: var(--tab-bg);
+  color: var(--text-color);
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.tabs button:hover {
+  background-color: var(--tab-hover);
+}
+
+.tabs button.active {
+  background-color: var(--tab-active);
+  color: white;
+}
+
+/* Section Panels */
+.section {
+  background-color: var(--section-bg);
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  transition: background-color 0.3s ease;
+}
+
+.section h3 {
+  color: var(--text-color);
+  margin-bottom: 1rem;
+}
+
+/* Patient Profile Side Box */
+.patient-profile.side {
+  margin-top: 2rem;
+  background-color: var(--section-bg);
+  padding: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  color: var(--text-color);
+}
+
+.patient-profile.side h3,
+.patient-profile.side p {
+  color: var(--text-color);
+}
+
+/* Buttons */
+button {
+  background-color: var(--button-bg);
+  border: none;
+  color: white;
+  border-radius: 6px;
+  font-weight: bold;
+  padding: 0.6rem 1.2rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+button:hover {
+  background-color: var(--button-hover);
+}
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.top-left {
+  flex: 1;
+}
+
+.top-right {
+  flex: 1;
+  text-align: right;
+}
+
+
+/* Responsive */
+@media (max-width: 768px) {
+  .top-controls {
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  .tabs {
+    flex-direction: column;
+  }
+
+  .tabs button {
+    width: 100%;
+  }
+
+  .caregiver-dashboard {
+    padding: 1rem;
+  }
+}
