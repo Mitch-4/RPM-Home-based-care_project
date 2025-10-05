@@ -10,7 +10,7 @@ function Home() {
         {' '}
         AI-Powered Remote Health Monitoring & Emergency Response Home-Based Care
       </h1>
-      <p class="text-red-600">
+      <p className="text-red-600">
         Empowering caregivers and doctors to monitor patients from home with
         real-time vitals, alerts, and medical feedback.
       </p>
