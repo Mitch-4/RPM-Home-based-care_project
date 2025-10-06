@@ -3,7 +3,7 @@ import React, { useEffect, useState, useContext } from "react";
 import axios from "axios";
 import { io } from "socket.io-client";
 import {
-  LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine
+  LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea
 } from "recharts";
 import {
   FaHeartbeat, FaLungs, FaWalking, FaBell, FaEnvelope,
@@ -103,7 +103,7 @@ export default function DoctorDashboard() {
       });
 
     // Latest vitals
-    axios.get(`/api/v1/vitals/${selectedPatient}/latest`)
+    axios.get(`/api/v1/patients/${selectedPatient}/latest`)
       .then(res => {
         const l = res.data.latest || {};
         const latestVitals = {
@@ -362,7 +362,7 @@ const dedupedVitalsData = allVitalsData.filter(
                       <option value="">-- Select Patient --</option>
                       {patients.map(p => (
                         <option key={p.id} value={p.id}>
-                          {p.name || "Unnamed Patient"} (Age: {p.age ?? "--"})
+                          {p.profile?.name || p.name || "Unnamed Patient"} (Age: {p.profile?.age || p.age || "--"})
                         </option>
                       ))}
                     </select>
@@ -504,8 +504,13 @@ const dedupedVitalsData = allVitalsData.filter(
                           <FaHeartbeat className="text-red-500" />
                           <span>Heart Rate Monitor (bpm)</span>
                         </h2>
-                        <ResponsiveContainer width="67%" height={250}>
-                          <LineChart data={allVitalsData}>
+                        <ResponsiveContainer width="67%" height={300}>
+                          <LineChart data={dedupedVitalsData}>
+                            <defs>
+                              <filter id="shadow">
+                                <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.3"/>
+                              </filter>
+                            </defs>
                             <CartesianGrid stroke={theme === "dark" ? "#374151" : "#e5e7eb"} strokeDasharray="3 3" />
                             <XAxis 
                               dataKey="time" 
@@ -527,9 +532,11 @@ const dedupedVitalsData = allVitalsData.filter(
                                 fontSize: 12
                               }}
                             />
-                            <ReferenceLine y={60} stroke="#10b981" strokeDasharray="4 4" label={{ value: 'Low (60)', position: 'insideTopLeft', fill: '#10b981', fontSize: 10 }} />
-                            <ReferenceLine y={100} stroke="#ef4444" strokeDasharray="4 4" label={{ value: 'High (100)', position: 'insideTopLeft', fill: '#ef4444', fontSize: 10 }} />
-                            <Line {...chartProps} type= "monotone" dataKey="heartRate" stroke="#ef4444" strokeWidth={2.5} dot={false} />
+                            <ReferenceArea y1={40} y2={60} fill="#3b82f6" fillOpacity={0.08} />
+                            <ReferenceArea y1={100} y2={120} fill="#ef4444" fillOpacity={0.08} />
+                            <ReferenceLine y={60} stroke="#10b981" strokeDasharray="4 4" label={{ value: 'Normal Low (60)', position: 'insideTopLeft', fill: '#10b981', fontSize: 10 }} />
+                            <ReferenceLine y={100} stroke="#ef4444" strokeDasharray="4 4" label={{ value: 'Normal High (100)', position: 'insideTopLeft', fill: '#ef4444', fontSize: 10 }} />
+                            <Line type= "natural" dataKey="heartRate" stroke="#ef4444" strokeWidth={2.5} dot={false} filter="url(#shadow)" />
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
@@ -540,8 +547,8 @@ const dedupedVitalsData = allVitalsData.filter(
                           <FaLungs className="text-blue-500" />
                           <span>Respiration Rate Monitor (br/min)</span>
                         </h2>
-                        <ResponsiveContainer width="67%" height={250}>
-                          <LineChart data={allVitalsData}>
+                        <ResponsiveContainer width="67%" height={300}>
+                          <LineChart data={dedupedVitalsData}>
                             <CartesianGrid stroke={theme === "dark" ? "#374151" : "#e5e7eb"} strokeDasharray="3 3" />
                             <XAxis 
                               dataKey="time" 
@@ -563,9 +570,11 @@ const dedupedVitalsData = allVitalsData.filter(
                                 fontSize: 12
                               }}
                             />
-                            <ReferenceLine y={12} stroke="#10b981" strokeDasharray="4 4" label={{ value: 'Low (12)', position: 'insideTopLeft', fill: '#10b981', fontSize: 10 }} />
-                            <ReferenceLine y={20} stroke="#ef4444" strokeDasharray="4 4" label={{ value: 'High (20)', position: 'insideTopLeft', fill: '#ef4444', fontSize: 10 }} />
-                            <Line {...chartProps} type= "monotone" dataKey="respirationRate" stroke="#3b82f6" strokeWidth={2.5} dot={false} />
+                            <ReferenceArea y1={8} y2={12} fill="#3b82f6" fillOpacity={0.08} />
+                            <ReferenceArea y1={20} y2={30} fill="#ef4444" fillOpacity={0.08} />
+                            <ReferenceLine y={12} stroke="#10b981" strokeDasharray="4 4" label={{ value: 'Normal Low (12)', position: 'insideTopLeft', fill: '#10b981', fontSize: 10 }} />
+                            <ReferenceLine y={20} stroke="#ef4444" strokeDasharray="4 4" label={{ value: 'Normal High (20)', position: 'insideTopLeft', fill: '#ef4444', fontSize: 10 }} />
+                            <Line type= "natural" dataKey="respirationRate" stroke="#3b82f6" strokeWidth={2.5} dot={false} filter="url(#shadow)" />
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
@@ -576,8 +585,8 @@ const dedupedVitalsData = allVitalsData.filter(
                           <FaWalking className="text-green-500" />
                           <span>Movement Activity</span>
                         </h2>
-                        <ResponsiveContainer width="67%" height={250}>
-                          <LineChart data={allVitalsData}>
+                        <ResponsiveContainer width="67%" height={300}>
+                          <LineChart data={dedupedVitalsData}>
                             <CartesianGrid stroke={theme === "dark" ? "#374151" : "#e5e7eb"} strokeDasharray="3 3" />
                             <XAxis 
                               dataKey="time" 
@@ -598,7 +607,7 @@ const dedupedVitalsData = allVitalsData.filter(
                                 fontSize: 12
                               }}
                             />
-                            <Line {...chartProps} type= "monotone" dataKey="movement" stroke="#10b981" strokeWidth={2.5} dot={false} />
+                            <Line type= "natural" dataKey="movement" stroke="#10b981" strokeWidth={2.5} dot={false} filter="url(#shadow)" />
                           </LineChart>
                         </ResponsiveContainer>
                       </div>

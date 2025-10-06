@@ -6,6 +6,7 @@ const patientsController = require('../controllers/patientsController');
 router.get('/', patientsController.list);
 
 // Fetch single patient profile
+router.get('/:patientId/profile', patientsController.get);  // ADD THIS
 router.get('/:patientId', patientsController.get);
 
 // Fetch all vitals for a patient

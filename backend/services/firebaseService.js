@@ -16,11 +16,9 @@ const db = admin.database();
 const getPatients = async () => {
   const snapshot = await db.ref("patients").once("value");
   const val = snapshot.val() || {};
-
-  // Only return profile data for patient listings
   return Object.entries(val).map(([id, data]) => ({
     id,
-    ...(data.profile || {})   // name, age, gender, condition
+    profile: data.profile || {}  // ✅ Keep it nested!
   }));
 };
 
