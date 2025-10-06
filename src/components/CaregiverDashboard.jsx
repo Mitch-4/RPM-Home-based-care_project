@@ -68,24 +68,7 @@ export default function CaregiversDashboard() {
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [showAlertModal, setShowAlertModal] = useState(false);
 
-  // Socket connection status
-  useEffect(() => {
-    socket.on("connect", () => {
-      console.log("Socket connected");
-      setSocketConnected(true);
-    });
-    
-    socket.on("disconnect", () => {
-      console.log("Socket disconnected");
-      setSocketConnected(false);
-    });
-
-    return () => {
-      socket.off("connect");
-      socket.off("disconnect");
-    };
-  }, []);
-
+  
   // Fetch patients
   useEffect(() => {
     axios.get("/api/v1/patients")
@@ -153,12 +136,19 @@ export default function CaregiversDashboard() {
 
     // Alerts
     axios.get(`/api/v1/alerts/${selectedPatient}?limit=50`)
-      .then(res => {
-        const alertsData = res.data.alerts || res.data || [];
-        setAlerts(alertsData);
-        setUnreadAlerts(alertsData.filter(a => !a.read).length);
-      })
-      .catch(err => console.error("Failed to fetch alerts:", err));
+  .then(res => {
+    let alertsData = res.data.alerts || res.data || [];
+    
+    // Ensure it's always an array
+    if (!Array.isArray(alertsData)) {
+      console.warn("Alerts data is not an array:", alertsData);
+      alertsData = [];
+    }
+    
+    setAlerts(alertsData);
+    setUnreadAlerts(alertsData.filter(a => !a.read).length);
+  })
+  .catch(err => console.error("Failed to fetch alerts:", err));
 
     // Messages
     axios.get(`/api/v1/messages/${selectedPatient}?limit=100`)
@@ -296,7 +286,7 @@ export default function CaregiversDashboard() {
                       : 'hover:bg-green-600 opacity-80'
                   }`}
                 >
-                  {p.name || 'Unnamed'}
+                  {p.profile?.name || p.name || 'Unnamed'}
                 </button>
               ))}
             </div>
@@ -406,7 +396,7 @@ export default function CaregiversDashboard() {
                       <option value="">Select a patient</option>
                       {patients.map(p => (
                         <option key={p.id} value={p.id}>
-                          {p.name || "Unnamed"} (Age: {p.age || "N/A"})
+                          {p.profile?.name || p.name || "Unnamed"} (Age: {p.profile?.age || p.age || "N/A"})
                         </option>
                       ))}
                     </select>
