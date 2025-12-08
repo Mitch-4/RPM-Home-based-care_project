@@ -14,6 +14,19 @@ import {
   FaPaperPlane, FaCircle, FaTimes, FaCheckCircle
 } from "react-icons/fa";
 import { ThemeContext } from "../context/ThemeContext";
+import LogoutButton from "./LogoutButton";
+
+
+
+
+
+
+<div className="dashboard-container" style={{ position: "relative" }}>
+  <LogoutButton />
+  
+  {/* Rest of your dashboard content */}
+</div>
+
 
 const socket = io("http://localhost:5000", { transports: ["websocket"] });
 
@@ -528,7 +541,7 @@ export default function CaregiversDashboard() {
                           {vitals.length} readings
                         </span>
                       </div>
-                      <ResponsiveContainer width="67%" height={200}>
+                      <ResponsiveContainer width="70%" height={200}>
                         <LineChart data={vitals}>
                           <CartesianGrid stroke={theme === "dark" ? "#374151" : "#e5e7eb"} strokeDasharray="3 3" />
                           <XAxis 
@@ -568,7 +581,7 @@ export default function CaregiversDashboard() {
                           {vitals.length} readings
                         </span>
                       </div>
-                      <ResponsiveContainer width="67%" height={200}>
+                      <ResponsiveContainer width="87%" height={200}>
                         <LineChart data={vitals}>
                           <CartesianGrid stroke={theme === "dark" ? "#374151" : "#e5e7eb"} strokeDasharray="3 3" />
                           <XAxis 

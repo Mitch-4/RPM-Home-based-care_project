@@ -12,6 +12,15 @@ import {
 } from "react-icons/fa";
 import ThemeToggle from "./ThemeToggle";
 import { ThemeContext } from "../context/ThemeContext";
+import LogoutButton from "./LogoutButton";
+
+const handleLogout = () => {
+  // Clear any auth tokens or session data
+  localStorage.removeItem("token"); // or whatever you use for auth
+  // Redirect to login page
+  window.location.href = "/login";
+};
+
 
 // Connect to backend Socket.IO
 const socket = io("http://localhost:5000", { transports: ["websocket"] });
@@ -327,6 +336,15 @@ const dedupedVitalsData = allVitalsData.filter(
           <span>Settings</span>
         </button>
 
+        <button 
+          onClick={handleLogout}
+          className="flex items-center space-x-3 hover:bg-blue-600 p-3 rounded-lg transition-all w-full"
+        >
+          <FaSignOutAlt className="text-lg" />
+          <span>Logout</span>
+        </button>
+
+
         <div className="mt-auto space-y-2">
           <ThemeToggle />
           <button className="flex items-center space-x-3 hover:bg-blue-600 p-3 rounded-lg transition-all w-full">
@@ -498,118 +516,140 @@ const dedupedVitalsData = allVitalsData.filter(
 
                   {!loading && allVitalsData.length > 0 && (
                     <>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6"></div>
                       {/* Heart Rate Chart */}
-                      <div className={cardStyle}>
+                      <div className={`p-6 rounded-xl shadow-sm ${theme === "dark" ? "bg-gray-800" : "bg-white"}`}>
                         <h2 className="font-semibold text-lg mb-4 flex items-center space-x-2">
                           <FaHeartbeat className="text-red-500" />
                           <span>Heart Rate Monitor (bpm)</span>
                         </h2>
-                        <ResponsiveContainer width="67%" height={300}>
-                          <LineChart data={dedupedVitalsData}>
-                            <defs>
-                              <filter id="shadow">
-                                <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.3"/>
-                              </filter>
-                            </defs>
-                            <CartesianGrid stroke={theme === "dark" ? "#374151" : "#e5e7eb"} strokeDasharray="3 3" />
-                            <XAxis 
-                              dataKey="time" 
-                              tickFormatter={formatTime} 
-                              tick={{ fill: theme === "dark" ? "#9ca3af" : "#6b7280", fontSize: 11 }} 
-                            />
-                            <YAxis 
-                              domain={[40, 120]} 
-                              tick={{ fill: theme === "dark" ? "#9ca3af" : "#6b7280", fontSize: 11 }} 
-                              label={{ value: "bpm", angle: -90, position: 'insideLeft', fill: theme === "dark" ? "#9ca3af" : "#6b7280" }} 
-                            />
-                            <Tooltip 
-                              labelFormatter={formatDateTime} 
-                              formatter={(value) => [`${value} bpm`, "Heart Rate"]}
-                              contentStyle={{ 
-                                backgroundColor: theme === "dark" ? "#1f2937" : "#ffffff",
-                                border: `1px solid ${theme === "dark" ? "#374151" : "#e5e7eb"}`,
-                                borderRadius: '8px',
-                                fontSize: 12
-                              }}
-                            />
-                            <ReferenceArea y1={40} y2={60} fill="#3b82f6" fillOpacity={0.08} />
-                            <ReferenceArea y1={100} y2={120} fill="#ef4444" fillOpacity={0.08} />
-                            <ReferenceLine y={60} stroke="#10b981" strokeDasharray="4 4" label={{ value: 'Normal Low (60)', position: 'insideTopLeft', fill: '#10b981', fontSize: 10 }} />
-                            <ReferenceLine y={100} stroke="#ef4444" strokeDasharray="4 4" label={{ value: 'Normal High (100)', position: 'insideTopLeft', fill: '#ef4444', fontSize: 10 }} />
-                            <Line type= "natural" dataKey="heartRate" stroke="#ef4444" strokeWidth={2.5} dot={false} filter="url(#shadow)" />
-                          </LineChart>
+                        <ResponsiveContainer width="70%" height={200}>
+                         <LineChart data={dedupedVitalsData}>
+                          <CartesianGrid 
+                            stroke={theme === "dark" ? "#374151" : "#e5e7eb"} 
+                            strokeDasharray="3 3" 
+                          />
+                          <XAxis 
+                           dataKey="time" 
+                           tickFormatter={formatTime} 
+                           tick={{ fill: theme === "dark" ? "#9ca3af" : "#6b7280", fontSize: 11 }} 
+                         />
+                         <YAxis 
+                          domain={[40, 140]} 
+                          tick={{ fill: theme === "dark" ? "#9ca3af" : "#6b7280", fontSize: 11 }} 
+                          label={{ value: "bpm", angle: -90, position: 'insideLeft', fill: theme === "dark" ? "#9ca3af" : "#6b7280" }} 
+                         />
+                         <Tooltip 
+                          labelFormatter={formatDateTime} 
+                          formatter={(value) => [`${value} bpm`, "Heart Rate"]}
+                          contentStyle={{ 
+                           backgroundColor: theme === "dark" ? "#1f2937" : "#ffffff",
+                           border: `1px solid ${theme === "dark" ? "#374151" : "#e5e7eb"}`,
+                           borderRadius: '8px'
+                          }}
+                        />
+                        <ReferenceLine y={60} stroke="#10b981" strokeDasharray="4 4" label={{ value: 'Low', fill: '#10b981', fontSize: 10 }} />
+                        <ReferenceLine y={100} stroke="#ef4444" strokeDasharray="4 4" label={{ value: 'High', fill: '#ef4444', fontSize: 10 }} />
+                        <Line 
+                         {...chartProps}
+                         type="monotone" 
+                         dataKey="heartRate"
+                         stroke="#ef4444"
+                         strokeWidth={2}
+                         
+                       />
+                        </LineChart>
                         </ResponsiveContainer>
-                      </div>
 
+                      </div>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6"></div>
                       {/* Respiration Rate Chart */}
-                      <div className={cardStyle}>
+                      <div className={`p-6 rounded-xl shadow-sm ${theme === "dark" ? "bg-gray-800" : "bg-white"}`}>
                         <h2 className="font-semibold text-lg mb-4 flex items-center space-x-2">
                           <FaLungs className="text-blue-500" />
                           <span>Respiration Rate Monitor (br/min)</span>
                         </h2>
-                        <ResponsiveContainer width="67%" height={300}>
-                          <LineChart data={dedupedVitalsData}>
-                            <CartesianGrid stroke={theme === "dark" ? "#374151" : "#e5e7eb"} strokeDasharray="3 3" />
-                            <XAxis 
-                              dataKey="time" 
-                              tickFormatter={formatTime} 
-                              tick={{ fill: theme === "dark" ? "#9ca3af" : "#6b7280", fontSize: 11 }} 
-                            />
-                            <YAxis 
-                              domain={[8, 30]} 
-                              tick={{ fill: theme === "dark" ? "#9ca3af" : "#6b7280", fontSize: 11 }} 
-                              label={{ value: "br/min", angle: -90, position: 'insideLeft', fill: theme === "dark" ? "#9ca3af" : "#6b7280" }} 
-                            />
-                            <Tooltip 
-                              labelFormatter={formatDateTime} 
-                              formatter={(value) => [`${value} br/min`, "Respiration"]}
-                              contentStyle={{ 
-                                backgroundColor: theme === "dark" ? "#1f2937" : "#ffffff",
-                                border: `1px solid ${theme === "dark" ? "#374151" : "#e5e7eb"}`,
-                                borderRadius: '8px',
-                                fontSize: 12
-                              }}
-                            />
-                            <ReferenceArea y1={8} y2={12} fill="#3b82f6" fillOpacity={0.08} />
-                            <ReferenceArea y1={20} y2={30} fill="#ef4444" fillOpacity={0.08} />
-                            <ReferenceLine y={12} stroke="#10b981" strokeDasharray="4 4" label={{ value: 'Normal Low (12)', position: 'insideTopLeft', fill: '#10b981', fontSize: 10 }} />
-                            <ReferenceLine y={20} stroke="#ef4444" strokeDasharray="4 4" label={{ value: 'Normal High (20)', position: 'insideTopLeft', fill: '#ef4444', fontSize: 10 }} />
-                            <Line type= "natural" dataKey="respirationRate" stroke="#3b82f6" strokeWidth={2.5} dot={false} filter="url(#shadow)" />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
+                        <ResponsiveContainer width="87%" height={200}>
+                        <LineChart data={dedupedVitalsData}>
+                        <CartesianGrid 
+                          stroke={theme === "dark" ? "#374151" : "#e5e7eb"} 
+                          strokeDasharray="3 3" 
+                        />
+                        <XAxis 
+                         dataKey="time" 
+                         tickFormatter={formatTime} 
+                         tick={{ fill: theme === "dark" ? "#9ca3af" : "#6b7280", fontSize: 11 }} 
+                        />
+                       <YAxis 
+                         domain={[8, 30]} 
+                         tick={{ fill: theme === "dark" ? "#9ca3af" : "#6b7280", fontSize: 11 }} 
+                         label={{ value: "br/min", angle: -90, position: 'insideLeft', fill: theme === "dark" ? "#9ca3af" : "#6b7280" }} 
+                        />
+                       <Tooltip 
+                         labelFormatter={formatDateTime} 
+                         formatter={(value) => [`${value} br/min`, "Respiration"]}
+                         contentStyle={{ 
+                          backgroundColor: theme === "dark" ? "#1f2937" : "#ffffff",
+                          border: `1px solid ${theme === "dark" ? "#374151" : "#e5e7eb"}`,
+                          borderRadius: '8px'
+                          }}
+                       />
+                        <ReferenceLine y={12} stroke="#10b981" strokeDasharray="4 4" label={{ value: 'Low', fill: '#10b981', fontSize: 10 }} />
+                        <ReferenceLine y={20} stroke="#ef4444" strokeDasharray="4 4" label={{ value: 'High', fill: '#ef4444', fontSize: 10 }} />
+                        <Line 
+                          {...chartProps}
+                          type="monotone" 
+                          dataKey="respirationRate" 
+                          stroke="#3b82f6"
+                          strokeWidth={2}
+
+                         />
+                         </LineChart>
+                         </ResponsiveContainer>
+
+                      </div> {/* end of grid */}
 
                       {/* Movement Chart */}
-                      <div className={cardStyle}>
+                      <div className={`p-6 rounded-xl shadow-sm ${theme === "dark" ? "bg-gray-800" : "bg-white"}`}>
                         <h2 className="font-semibold text-lg mb-4 flex items-center space-x-2">
                           <FaWalking className="text-green-500" />
                           <span>Movement Activity</span>
                         </h2>
-                        <ResponsiveContainer width="67%" height={300}>
-                          <LineChart data={dedupedVitalsData}>
-                            <CartesianGrid stroke={theme === "dark" ? "#374151" : "#e5e7eb"} strokeDasharray="3 3" />
-                            <XAxis 
-                              dataKey="time" 
-                              tickFormatter={formatTime} 
-                              tick={{ fill: theme === "dark" ? "#9ca3af" : "#6b7280", fontSize: 11 }} 
-                            />
-                            <YAxis 
-                              domain={[0, 'dataMax + 5']} 
-                              tick={{ fill: theme === "dark" ? "#9ca3af" : "#6b7280", fontSize: 11 }} 
-                            />
-                            <Tooltip 
-                              labelFormatter={formatDateTime} 
-                              formatter={(value) => [value, "Movement"]}
-                              contentStyle={{ 
-                                backgroundColor: theme === "dark" ? "#1f2937" : "#ffffff",
-                                border: `1px solid ${theme === "dark" ? "#374151" : "#e5e7eb"}`,
-                                borderRadius: '8px',
-                                fontSize: 12
-                              }}
-                            />
-                            <Line type= "natural" dataKey="movement" stroke="#10b981" strokeWidth={2.5} dot={false} filter="url(#shadow)" />
-                          </LineChart>
-                        </ResponsiveContainer>
+                        <ResponsiveContainer width="67%" height={200}>
+                        <LineChart data={dedupedVitalsData}>
+                        <CartesianGrid 
+                          stroke={theme === "dark" ? "#374151" : "#e5e7eb"} 
+                          strokeDasharray="3 3" 
+                       />
+                       <XAxis 
+                        dataKey="time" 
+                        tickFormatter={formatTime} 
+                        tick={{ fill: theme === "dark" ? "#9ca3af" : "#6b7280", fontSize: 11 }} 
+                      />
+                       <YAxis 
+                         domain={[0, 'dataMax + 1']} 
+                         tick={{ fill: theme === "dark" ? "#9ca3af" : "#6b7280", fontSize: 11 }} 
+                      />
+                      <Tooltip 
+                        labelFormatter={formatDateTime} 
+                        formatter={(value) => [value, "Movement"]}
+                        contentStyle={{ 
+                          backgroundColor: theme === "dark" ? "#1f2937" : "#ffffff",
+                          border: `1px solid ${theme === "dark" ? "#374151" : "#e5e7eb"}`,
+                          borderRadius: '8px'
+                        }}
+                       />
+                       <Line 
+                        {...chartProps}
+                        type="monotone"
+                        dataKey="movement"
+                        stroke="#10b981"
+                        strokeWidth={2}
+                        
+                      />
+                      </LineChart>
+                      </ResponsiveContainer>
+
                       </div>
                     </>
                   )}

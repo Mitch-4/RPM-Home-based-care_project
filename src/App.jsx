@@ -1,11 +1,13 @@
+// src/App.js
 import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
 import Home from "./components/Home";
 import CaregiverDashboard from "./components/CaregiverDashboard";
 import DoctorDashboard from "./components/DoctorDashboard";
 import Login from "./components/Login";
 import Register from "./components/Register";
+import EmailVerification from "./components/EmailVerification";
 import ProtectedRoute from "./components/ProtectedRoute";
-import "./App.css"; // Optional for global styling
+import "./App.css";
 
 function App() {
   return (
@@ -61,6 +63,7 @@ function App() {
           />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/verify-email" element={<EmailVerification />} />
         </Routes>
       </div>
     </Router>
