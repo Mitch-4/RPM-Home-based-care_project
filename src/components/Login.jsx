@@ -13,6 +13,7 @@ function Login() {
   const [role, setRole] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [showPassword, setShowPassword] = useState(false); // 👁️ Password visibility state
 
   const handleResendVerification = async () => {
     try {
@@ -97,94 +98,109 @@ function Login() {
   };
 
   return (
-    <div className="auth-container">
-      <h2>Login</h2>
+    <div className="auth-page-wrapper">
+      <div className="auth-container">
+        {/* Left Side - Form */}
+        <div className="auth-form-section">
+          <h2>Welcome Back</h2>
 
-      {message && (
-        <div
-          style={{
-            padding: "10px",
-            marginBottom: "15px",
-            borderRadius: "5px",
-            backgroundColor: message.includes("verify") || message.includes("resent") 
-              ? "#fff3cd" 
-              : "#f8d7da",
-            color: message.includes("verify") || message.includes("resent")
-              ? "#856404"
-              : "#721c24",
-            border: `1px solid ${
-              message.includes("verify") || message.includes("resent")
-                ? "#ffeaa7"
-                : "#f5c6cb"
-            }`,
-          }}
-        >
-          {message}
-          {message.includes("verify") && (
-            <button
-              onClick={handleResendVerification}
-              disabled={loading}
-              style={{
-                marginTop: "10px",
-                padding: "5px 10px",
-                backgroundColor: "#007bff",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: loading ? "not-allowed" : "pointer",
-                fontSize: "14px",
-              }}
+          {message && (
+            <div
+              className={`auth-message ${
+                message.includes("verify") || message.includes("resent") ? "warning" : "error"
+              }`}
             >
-              {loading ? "Sending..." : "Resend Verification Email"}
-            </button>
+              {message}
+              {message.includes("verify") && (
+                <button onClick={handleResendVerification} disabled={loading}>
+                  {loading ? "Sending..." : "Resend Verification Email"}
+                </button>
+              )}
+            </div>
           )}
-        </div>
-      )}
 
-      <form onSubmit={handleLogin} autoComplete="on">
-        <input
-          type="email"
-          name="email"
-          id="login-email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          autoComplete="email"
-          autoFocus={false}
-          required
-          disabled={loading}
-        />
-        <input
-          type="password"
-          name="password"
-          id="login-password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          autoComplete="current-password"
-          required
-          disabled={loading}
-        />
-        <select
-          name="role"
-          id="login-role"
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-          autoComplete="off"
-          required
-          disabled={loading}
-        >
-          <option value="">Select Role</option>
-          <option value="caregiver">Caregiver</option>
-          <option value="doctor">Doctor</option>
-        </select>
-        <button type="submit" disabled={loading}>
-          {loading ? "Logging in..." : "Login"}
-        </button>
-      </form>
-      <p>
-        Don't have an account? <a href="/register">Register</a>
-      </p>
+          <form onSubmit={handleLogin} autoComplete="on">
+            <input
+              type="email"
+              name="email"
+              id="login-email"
+              placeholder="Email Address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              autoFocus={false}
+              required
+              disabled={loading}
+            />
+            
+            {/* Password Input with Eye Icon */}
+            <div className="password-input-wrapper">
+              <input
+                type={showPassword ? "text" : "password"}
+                name="password"
+                id="login-password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                required
+                disabled={loading}
+              />
+              <button
+                type="button"
+                className="password-toggle-btn"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                disabled={loading}
+              >
+                {showPassword ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                )}
+              </button>
+            </div>
+
+            <select
+              name="role"
+              id="login-role"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              autoComplete="off"
+              required
+              disabled={loading}
+            >
+              <option value="">Select Your Role</option>
+              <option value="caregiver">Caregiver</option>
+              <option value="doctor">Doctor</option>
+            </select>
+            <button type="submit" disabled={loading}>
+              {loading ? "Logging in..." : "Login"}
+            </button>
+          </form>
+          <p>
+            Don't have an account? <a href="/register">Register Now</a>
+          </p>
+        </div>
+
+        {/* Right Side - Decorative/Image */}
+        <div className="auth-image-section">
+          <div className="auth-decorative-content">
+            <div className="auth-decorative-icon">🏥</div>
+            <h3>AI-Powered Healthcare</h3>
+            <p>
+              Monitor patient vitals in real-time. Get instant alerts. 
+              Provide better care with our advanced monitoring system.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

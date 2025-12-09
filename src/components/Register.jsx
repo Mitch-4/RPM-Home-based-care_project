@@ -10,7 +10,7 @@ function Register() {
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const defaultRole = params.get("role") || "";
-
+  
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -19,8 +19,7 @@ function Register() {
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const [userCreated, setUserCreated] = useState(null); // store user to resend verification
-  const [showPassword, setShowPassword] = useState(false); // toggle password visibility
+  const [showPassword, setShowPassword] = useState(false); // 👁️ Password visibility state
 
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -31,192 +30,168 @@ function Register() {
     setMessage("");
 
     try {
-      // 1️⃣ Create user account in Firebase
+      // Create user account
       const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        formData.email,
+        auth, 
+        formData.email, 
         formData.password
       );
 
       const user = userCredential.user;
-      setUserCreated(user); // store user for resending verification
 
-      // 2️⃣ Update user profile with display name
-      await updateProfile(user, { displayName: formData.name });
-
-      // 3️⃣ Send email verification
-      await sendEmailVerification(user, {
-        url: `${window.location.origin}/login?role=${formData.role}`,
-        handleCodeInApp: false,
+      // Update user profile with name
+      await updateProfile(user, {
+        displayName: formData.name
       });
 
-      // 4️⃣ Show success message
+      // Send verification email
+      await sendEmailVerification(user, {
+        url: window.location.origin + '/login?role=' + formData.role,
+        handleCodeInApp: false
+      });
+
       setMessage("Registration successful! Please check your email to verify your account.");
-
-      // 5️⃣ Immediately sign out the user
+      
+      // Sign out the user immediately after registration
       await auth.signOut();
-
-      // 6️⃣ Redirect to verification page after short delay
+      
+      // Redirect to verification page after 3 seconds
       setTimeout(() => {
-        navigate("/verify-email", {
-          state: { email: formData.email, role: formData.role },
+        navigate("/verify-email", { 
+          state: { 
+            email: formData.email, 
+            role: formData.role 
+          } 
         });
       }, 3000);
 
     } catch (error) {
       console.error("Registration error:", error);
-
-      // 7️⃣ User-friendly error messages
+      
+      // Provide user-friendly error messages
       let errorMessage = "Registration failed: ";
       switch (error.code) {
-        case "auth/email-already-in-use":
+        case 'auth/email-already-in-use':
           errorMessage += "This email is already registered. Please login instead.";
           break;
-        case "auth/weak-password":
+        case 'auth/weak-password':
           errorMessage += "Password should be at least 6 characters long.";
           break;
-        case "auth/invalid-email":
+        case 'auth/invalid-email':
           errorMessage += "Please enter a valid email address.";
           break;
         default:
           errorMessage += error.message;
       }
+      
       setMessage(errorMessage);
       setLoading(false);
     }
   };
 
-  // ✅ Resend verification email
-  const handleResendVerification = async () => {
-    if (!userCreated) return;
-    try {
-      await sendEmailVerification(userCreated, {
-        url: `${window.location.origin}/login?role=${formData.role}`,
-        handleCodeInApp: false,
-      });
-      alert("Verification email resent! Check your inbox (and spam folder).");
-    } catch (error) {
-      console.error("Error resending verification email:", error);
-      alert("Failed to resend verification email. Try again later.");
-    }
-  };
-
   return (
-    <div className="auth-container">
-      <h2>
-        Register as{" "}
-        {formData.role
-          ? formData.role.charAt(0).toUpperCase() + formData.role.slice(1)
-          : "User"}
-      </h2>
+    <div className="auth-page-wrapper">
+      <div className="auth-container">
+        {/* Left Side - Form */}
+        <div className="auth-form-section">
+          <h2>Create Account</h2>
+      
+          {message && (
+            <div
+              className={`auth-message ${
+                message.includes("successful") ? "success" : "error"
+              }`}
+            >
+              {message}
+            </div>
+          )}
 
-      {message && (
-        <div
-          style={{
-            padding: "10px",
-            marginBottom: "15px",
-            borderRadius: "5px",
-            backgroundColor: message.includes("successful") ? "#d4edda" : "#f8d7da",
-            color: message.includes("successful") ? "#155724" : "#721c24",
-            border: `1px solid ${message.includes("successful") ? "#c3e6cb" : "#f5c6cb"}`,
-          }}
-        >
-          {message}
+          <form onSubmit={handleRegister}>
+            <input
+              name="name"
+              type="text"
+              placeholder="Full Name"
+              value={formData.name}
+              onChange={handleChange}
+              required
+              disabled={loading}
+            />
+            <input
+              name="email"
+              type="email"
+              placeholder="Email Address"
+              value={formData.email}
+              onChange={handleChange}
+              required
+              disabled={loading}
+            />
+            
+            {/* Password Input with Eye Icon */}
+            <div className="password-input-wrapper">
+              <input
+                name="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="Password (min 6 characters)"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                minLength={6}
+                disabled={loading}
+              />
+              <button
+                type="button"
+                className="password-toggle-btn"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                disabled={loading}
+              >
+                {showPassword ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                )}
+              </button>
+            </div>
+
+            <select
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              required
+              disabled={loading}
+            >
+              <option value="">Select Your Role</option>
+              <option value="caregiver">Caregiver</option>
+              <option value="doctor">Doctor</option>
+            </select>
+            <button type="submit" disabled={loading}>
+              {loading ? "Creating Account..." : "Register"}
+            </button>
+          </form>
+          <p>
+            Already have an account? <a href="/login">Login</a>
+          </p>
         </div>
-      )}
 
-      <form onSubmit={handleRegister}>
-        {/* Name */}
-        <input
-          name="name"
-          type="text"
-          placeholder="Full Name"
-          value={formData.name}
-          onChange={handleChange}
-          required
-          disabled={loading}
-        />
-
-        {/* Email */}
-        <input
-          name="email"
-          type="email"
-          placeholder="Email"
-          value={formData.email}
-          onChange={handleChange}
-          required
-          disabled={loading}
-        />
-
-        {/* Password + Show/Hide Eye */}
-        <div style={{ position: "relative", width: "100%", marginBottom: "15px" }}>
-          <input
-            name="password"
-            type={showPassword ? "text" : "password"}
-            placeholder="Password (min 6 characters)"
-            value={formData.password}
-            onChange={handleChange}
-            required
-            minLength={6}
-            disabled={loading}
-            style={{ width: "100%", paddingRight: "40px" }}
-          />
-          <span
-            onClick={() => setShowPassword(!showPassword)}
-            style={{
-              position: "absolute",
-              right: "10px",
-              top: "50%",
-              cursor: "pointer",
-              transform: "translateY(-50%)",
-              fontSize: "18px",
-              userSelect: "none",
-            }}
-          >
-            {showPassword ? "🙈" : "👁️"}
-          </span>
+        {/* Right Side - Decorative/Image */}
+        <div className="auth-image-section">
+          <div className="auth-decorative-content">
+            <div className="auth-decorative-icon">💚</div>
+            <h3>Join Our Platform</h3>
+            <p>
+              Start monitoring your patients remotely. Real-time alerts, 
+              comprehensive analytics, and seamless collaboration between 
+              doctors and caregivers.
+            </p>
+          </div>
         </div>
-
-        {/* Role */}
-        <select
-          name="role"
-          value={formData.role}
-          onChange={handleChange}
-          required
-          disabled={loading}
-        >
-          <option value="">Select Role</option>
-          <option value="caregiver">Caregiver</option>
-          <option value="doctor">Doctor</option>
-        </select>
-
-        {/* Submit */}
-        <button type="submit" disabled={loading}>
-          {loading ? "Registering..." : "Register"}
-        </button>
-      </form>
-
-      {/* Resend Verification */}
-      {userCreated && (
-        <button
-          onClick={handleResendVerification}
-          style={{
-            marginTop: "15px",
-            padding: "10px 15px",
-            backgroundColor: "#3498db",
-            color: "white",
-            border: "none",
-            borderRadius: "5px",
-            cursor: "pointer",
-          }}
-        >
-          Resend Verification Email
-        </button>
-      )}
-
-      <p>
-        Already registered? <a href="/login">Login</a>
-      </p>
+      </div>
     </div>
   );
 }
