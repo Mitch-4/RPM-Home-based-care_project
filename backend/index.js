@@ -15,6 +15,9 @@ const messagesRoutes = require('./routes/messages'); // NEW
 const { PORT = 5000, CORS_ORIGIN } = process.env;
 const app = express();
 
+const ragRoutes = require("./routes/rag");
+app.use("/api/rag", ragRoutes);
+
 app.use(bodyParser.json());
 app.use(
   cors({
