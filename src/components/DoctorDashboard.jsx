@@ -12,7 +12,9 @@ import {
 } from "react-icons/fa";
 import ThemeToggle from "./ThemeToggle";
 import { ThemeContext } from "../context/ThemeContext";
-import LogoutButton from "./LogoutButton";
+
+import RagAssistant from "./RagAssistant";
+
 
 const handleLogout = () => {
   // Clear any auth tokens or session data
@@ -498,6 +500,27 @@ const dedupedVitalsData = allVitalsData.filter(
                   </div>
                 </div>
               )}
+
+              {/*  AI Clinical Assistant */}
+              {selectedPatient && (
+                <div className={`${cardStyle} mb-6`}>
+                 <h2 className="text-xl font-semibold mb-2">
+                   Clinical Assistant
+                 </h2>
+                 <p className="text-sm opacity-75 mb-4">
+                  Ask questions about this patient’s condition and trends.
+                 </p>
+
+                  <RagAssistant
+                    patientId={selectedPatient}
+                    role="doctor"
+                    latestVitals={latest}
+                    historicalVitals={dedupedVitalsData}
+                    profile={profile}
+                 />
+               </div>
+              )}
+
 
               {/* Charts */}
               {selectedPatient && (

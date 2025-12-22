@@ -14,21 +14,12 @@ import {
   FaPaperPlane, FaCircle, FaTimes, FaCheckCircle
 } from "react-icons/fa";
 import { ThemeContext } from "../context/ThemeContext";
-import LogoutButton from "./LogoutButton";
+import RagAssistant from "./RagAssistant";
 
-
-
-
-
-
-<div className="dashboard-container" style={{ position: "relative" }}>
-  <LogoutButton />
-  
-  {/* Rest of your dashboard content */}
-</div>
 
 
 const socket = io("http://localhost:5000", { transports: ["websocket"] });
+
 
 const formatTime = (timeStr) => {
   const date = new Date(timeStr);
@@ -62,8 +53,23 @@ const getTimeAgo = (timeStr) => {
 };
 
 export default function CaregiversDashboard() {
+  useEffect(() => {
+  socket.on("connect", () => setSocketConnected(true));
+  socket.on("disconnect", () => setSocketConnected(false));
+
+  return () => {
+    socket.off("connect");
+    socket.off("disconnect");
+  };
+}, []);
   const { theme, toggleTheme } = useContext(ThemeContext);
   const navigate = useNavigate();
+   const cardStyle =
+    theme === "dark"
+      ? "bg-gray-800 rounded-xl p-6 shadow-sm"
+      : "bg-white rounded-xl p-6 shadow-sm";
+
+
 
   const [patients, setPatients] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState("");
@@ -279,8 +285,7 @@ export default function CaregiversDashboard() {
           
           {/* Connection Status */}
           <div className="mt-3 flex items-center gap-2 text-xs">
-            <FaCircle className={`text-xs ${socketConnected ? 'text-green-400' : 'text-red-400'}`} />
-            <span>{socketConnected ? 'Connected' : 'Disconnected'}</span>
+            
           </div>
         </div>
 
@@ -526,6 +531,29 @@ export default function CaregiversDashboard() {
                 </div>
               )}
 
+
+              {/*  Caregiver Support Assistant */}
+              {selectedPatient && (
+                <div className={`${cardStyle} mb-6`}>
+                  <h2 className="text-xl font-semibold mb-2">
+                     Caregiver Support Assistant
+                  </h2>
+
+                  <p className="text-sm opacity-75 mb-4">
+                     Get simple explanations of the patient’s vital signs and guidance on when to seek help.
+                  </p>
+
+                   <RagAssistant
+                      patientId={selectedPatient}
+                      role="caregiver"
+                      latestVitals={latest}
+                      historicalVitals={vitals}
+                      profile={profile}
+                    />
+                </div>
+              )}
+
+
               {/* Charts - 2 Column Layout */}
               {selectedPatient && !loading && vitals.length > 0 && (
                 <>
@@ -541,7 +569,7 @@ export default function CaregiversDashboard() {
                           {vitals.length} readings
                         </span>
                       </div>
-                      <ResponsiveContainer width="70%" height={200}>
+                      <ResponsiveContainer width="100%" height={200}>
                         <LineChart data={vitals}>
                           <CartesianGrid stroke={theme === "dark" ? "#374151" : "#e5e7eb"} strokeDasharray="3 3" />
                           <XAxis 
@@ -581,7 +609,7 @@ export default function CaregiversDashboard() {
                           {vitals.length} readings
                         </span>
                       </div>
-                      <ResponsiveContainer width="87%" height={200}>
+                      <ResponsiveContainer width="100%" height={200}>
                         <LineChart data={vitals}>
                           <CartesianGrid stroke={theme === "dark" ? "#374151" : "#e5e7eb"} strokeDasharray="3 3" />
                           <XAxis 

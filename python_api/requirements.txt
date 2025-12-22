@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+firebase-admin
+pandas
+faiss-cpu
+sentence-transformers
+mistralai

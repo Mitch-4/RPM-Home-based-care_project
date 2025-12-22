@@ -1,15 +1,24 @@
 // src/components/Register.js
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from "firebase/auth";
-import { auth } from "../firebase";
+import {
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+  updateProfile
+} from "firebase/auth";
+import { ref, set } from "firebase/database";
+import { auth, db } from "../firebase";
 import "./Auth.css";
+
+
 
 function Register() {
   const navigate = useNavigate();
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const defaultRole = params.get("role") || "";
+ 
+
   
   const [formData, setFormData] = useState({
     name: "",
@@ -28,6 +37,12 @@ function Register() {
     e.preventDefault();
     setLoading(true);
     setMessage("");
+    if (!formData.role) {
+      setMessage("Please select a role before registering.");
+      setLoading(false);
+      return;
+    }
+
 
     try {
       // Create user account
@@ -42,6 +57,15 @@ function Register() {
       // Update user profile with name
       await updateProfile(user, {
         displayName: formData.name
+      });
+
+       // 3️⃣ Save user profile to Realtime Database (CRITICAL)
+      await set(ref(db, `users/${user.uid}`), {
+        uid: user.uid,
+        name: formData.name,
+        email: formData.email,
+        role: formData.role, // doctor | caregiver
+        createdAt: new Date().toISOString()
       });
 
       // Send verification email
@@ -67,6 +91,7 @@ function Register() {
 
     } catch (error) {
       console.error("Registration error:", error);
+
       
       // Provide user-friendly error messages
       let errorMessage = "Registration failed: ";
@@ -134,7 +159,7 @@ function Register() {
                 placeholder="Password (min 6 characters)"
                 value={formData.password}
                 onChange={handleChange}
-                required
+                required0720437554
                 minLength={6}
                 disabled={loading}
               />
@@ -182,7 +207,7 @@ function Register() {
         {/* Right Side - Decorative/Image */}
         <div className="auth-image-section">
           <div className="auth-decorative-content">
-            <div className="auth-decorative-icon">💚</div>
+            <div className="auth-decorative-icon"></div>
             <h3>Join Our Platform</h3>
             <p>
               Start monitoring your patients remotely. Real-time alerts, 
