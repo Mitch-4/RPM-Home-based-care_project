@@ -159,7 +159,7 @@ function Register() {
                 placeholder="Password (min 6 characters)"
                 value={formData.password}
                 onChange={handleChange}
-                required0720437554
+                required
                 minLength={6}
                 disabled={loading}
               />
