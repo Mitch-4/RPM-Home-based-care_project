@@ -40,3 +40,37 @@ exports.createAlert = async (req, res) => {
     return res.status(500).json({ ok: false, error: err.message });
   }
 };
+
+// Mark all alerts as read for a patient
+exports.markAlertsRead = async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const { alertIds } = req.body; // use IDs sent from frontend
+
+    // Get existing alerts directly from the correct path
+    const alertsRef = firebaseService.db.ref(`patients/${patientId}/alerts`);
+    const snapshot = await alertsRef.once('value');
+    const alertsData = snapshot.val();
+
+    if (!alertsData) {
+      return res.status(404).json({ ok: false, message: "No alerts found" });
+    }
+
+    // Only update the alerts whose IDs were sent
+    alertIds.forEach(id => {
+      if (alertsData[id]) {
+        alertsData[id].read = true;
+      }
+    });
+
+    // Write the updated alerts back to Firebase
+    await alertsRef.set(alertsData);
+
+    return res.json({ ok: true, message: "Alerts marked as read" });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+};
+
+

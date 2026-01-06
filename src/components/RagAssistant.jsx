@@ -1,5 +1,15 @@
 import { useState, useRef, useEffect } from "react";
 import axios from "axios";
+// Utility: split AI response into readable paragraphs
+const splitIntoParagraphs = (text) => {
+  if (!text) return [];
+
+  return text
+    .split(/\n\s*\n/)        // split on empty lines
+    .map(p => p.trim())
+    .filter(p => p.length > 0);
+};
+
 
 export default function RagAssistant({ patientId, role = "doctor", theme = "light" }) {
   const [question, setQuestion] = useState("");

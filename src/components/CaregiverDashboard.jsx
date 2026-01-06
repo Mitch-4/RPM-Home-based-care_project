@@ -1,12 +1,13 @@
-// src/components/CaregiversDashboard.js
-import React, { useEffect, useState, useContext } from "react";
+// src/components/CaregiverDashboard.js - COMPLETE WITH ENHANCED CLINICAL ANALYSIS
+import React, { useEffect, useState, useContext, useRef } from "react";
 import axios from "axios";
 import { io } from "socket.io-client";
 import { auth } from "../firebase";
 import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import {
-  LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine
+  LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, 
+  ReferenceLine, ReferenceArea
 } from "recharts";
 import {
   FaHeartbeat, FaLungs, FaWalking, FaBell, FaEnvelope,
@@ -15,11 +16,13 @@ import {
 } from "react-icons/fa";
 import { ThemeContext } from "../context/ThemeContext";
 import RagAssistant from "./RagAssistant";
+import { ClinicalAnalysis } from "../utils/clinicalAnalysis";
+
+
 
 
 
 const socket = io("http://localhost:5000", { transports: ["websocket"] });
-
 
 const formatTime = (timeStr) => {
   const date = new Date(timeStr);
@@ -52,42 +55,101 @@ const getTimeAgo = (timeStr) => {
   return `${Math.floor(diffHour / 24)}d ago`;
 };
 
-export default function CaregiversDashboard() {
-  useEffect(() => {
-  socket.on("connect", () => setSocketConnected(true));
-  socket.on("disconnect", () => setSocketConnected(false));
-
-  return () => {
-    socket.off("connect");
-    socket.off("disconnect");
-  };
-}, []);
+export default function CaregiverDashboard() {
   const { theme, toggleTheme } = useContext(ThemeContext);
   const navigate = useNavigate();
-   const cardStyle =
-    theme === "dark"
-      ? "bg-gray-800 rounded-xl p-6 shadow-sm"
-      : "bg-white rounded-xl p-6 shadow-sm";
-
-
-
+  const messagesEndRef = useRef(null); // added
   const [patients, setPatients] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState("");
   const [profile, setProfile] = useState({});
-  const [vitals, setVitals] = useState([]);
+  const [vitals, setVitals] = useState([]); // Single vitals array
   const [latest, setLatest] = useState({});
   const [tab, setTab] = useState("dashboard");
   const [alerts, setAlerts] = useState([]);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
+  const [unreadMessages, setUnreadMessages] = useState(0);
+
+  
+
+  // Scroll to bottom whenever messages update
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
+
   const [loading, setLoading] = useState(false);
   const [selectedTimeRange, setSelectedTimeRange] = useState("24h");
   const [socketConnected, setSocketConnected] = useState(false);
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [showAlertModal, setShowAlertModal] = useState(false);
+  const [clinicalData, setClinicalData] = useState(null);
 
-  
+  // Listen to all messages globally for caregiver
+  useEffect(() => {
+    const globalMessageHandler = (msg) => {
+      console.log("Received message:", msg); // <-- check this
+      setMessages(prev => {
+        // Check if the message already exists
+        const exists = prev.some(
+          m =>
+            m.createdAt === msg.createdAt &&
+            m.text === msg.text &&
+            m.senderId === msg.senderId
+        );
+
+        if (exists) return prev; // Duplicate found, do not add
+
+        return [...prev, msg]; // Otherwise, add the new message
+      });
+
+      // Increment unread if the message is from someone else
+      const sender = msg.senderId || msg.sender;
+      if (msg.senderId !== 'caregiver') {
+        console.log("Incrementing unread messages"); // <-- check if this runs
+        setUnreadMessages(prev => prev + 1);
+      }
+    };
+
+    socket.on("message", globalMessageHandler);
+
+    return () => {
+      socket.off("message", globalMessageHandler);
+    };
+  }, []);
+
+  useEffect(() => {
+  if (tab === "messages" && selectedPatient) {
+    axios.patch(`/api/v1/messages/${selectedPatient}/read`)
+      .then(() => {
+        setUnreadMessages(0); // Reset counter
+      })
+      .catch(err => console.error("Failed to mark messages as read", err));
+  }
+}, [tab, selectedPatient]);
+
+      
+  const chartProps = {
+    strokeWidth: 2.5,
+    dot: false,
+    isAnimationActive: true,
+    type: "monotone",
+  };
+
+  const cardStyle = `p-6 rounded-xl shadow-sm ${theme === "dark" ? "bg-gray-800 text-white" : "bg-white text-gray-900"}`;
+
+  useEffect(() => {
+    socket.on("connect", () => setSocketConnected(true));
+    socket.on("disconnect", () => setSocketConnected(false));
+
+    return () => {
+      socket.off("connect");
+      socket.off("disconnect");
+    };
+  }, []);
+
   // Fetch patients
   useEffect(() => {
     axios.get("/api/v1/patients")
@@ -111,13 +173,14 @@ export default function CaregiversDashboard() {
     setLatest({});
     setAlerts([]);
     setMessages([]);
+    setClinicalData(null);
 
     // Profile
     axios.get(`/api/v1/patients/${selectedPatient}/profile`)
       .then(res => setProfile(res.data || {}))
       .catch(err => console.error("Failed to fetch profile:", err));
 
-    // Vitals
+    // Vitals - FIXED DATA MAPPING to match doctor
     const limitMap = { "1h": 60, "6h": 360, "24h": 1440, "7d": 10080 };
     axios.get(`/api/v1/vitals/${selectedPatient}?limit=${limitMap[selectedTimeRange] || 1440}`)
       .then(res => {
@@ -125,14 +188,21 @@ export default function CaregiversDashboard() {
         console.log("Caregiver fetched", data.length, "vitals");
         
         const mapped = data.map(v => ({
-          time: v.timeRecorded || v.time,
-          heartRate: v.heartRate ?? 0,
-          respiration: v.respirationRate ?? 0,
+          time: new Date(v.timeRecorded || v.time).toISOString(),
+          heartRate: v.heartRate ?? 0,  // ✅ FIXED: Using heartRate (consistent with doctor)
+          respirationRate: v.respirationRate ?? 0,  // ✅ FIXED: Using respirationRate (consistent with doctor)
           movement: v.movement ?? 0
         }));
         
         mapped.sort((a, b) => new Date(a.time) - new Date(b.time));
-        setVitals(mapped);
+        
+        // Remove duplicates
+        const deduped = mapped.filter(
+          (item, index, self) => index === self.findIndex((t) => t.time === item.time)
+        );
+        
+        console.log("After dedup:", deduped.length, "vitals");
+        setVitals(deduped);
         setLoading(false);
       })
       .catch(err => {
@@ -141,39 +211,44 @@ export default function CaregiversDashboard() {
       });
 
     // Latest
-    axios.get(`/api/v1/vitals/${selectedPatient}/latest`)
+    axios.get(`/api/v1/patients/${selectedPatient}/latest`)
       .then(res => {
         const l = res.data.latest || res.data || {};
-        setLatest({
+        const latestVitals = {
           time: l.timeRecorded || l.time,
           heartRate: l.heartRate ?? 0,
-          respiration: l.respirationRate ?? 0,
+          respirationRate: l.respirationRate ?? 0,
           movement: l.movement ?? 0
+        };
+        setLatest(latestVitals);
+
+        // Add to vitals if not already there
+        setVitals(prev => {
+          const exists = prev.some(v => v.time === latestVitals.time);
+          if (!exists) return [...prev, latestVitals];
+          return prev;
         });
       })
       .catch(err => console.error("Failed to fetch latest:", err));
 
     // Alerts
     axios.get(`/api/v1/alerts/${selectedPatient}?limit=50`)
-  .then(res => {
-    let alertsData = res.data.alerts || res.data || [];
-    
-    // Ensure it's always an array
-    if (!Array.isArray(alertsData)) {
-      console.warn("Alerts data is not an array:", alertsData);
-      alertsData = [];
-    }
-    
-    setAlerts(alertsData);
-    setUnreadAlerts(alertsData.filter(a => !a.read).length);
-  })
-  .catch(err => console.error("Failed to fetch alerts:", err));
+      .then(res => {
+        let alertsData = res.data.alerts || res.data || [];
+        if (!Array.isArray(alertsData)) {
+          alertsData = [];
+        }
+        setAlerts(alertsData);
+        setUnreadAlerts(alertsData.filter(a => !a.read).length);
+      })
+      .catch(err => console.error("Failed to fetch alerts:", err));
 
     // Messages
     axios.get(`/api/v1/messages/${selectedPatient}?limit=100`)
       .then(res => {
         const msgs = res.data.messages || res.data || [];
         setMessages(msgs);
+        setUnreadMessages(msgs.filter(m => !m.read && m.senderId !== 'caregiver').length);
       })
       .catch(err => console.error("Failed to fetch messages:", err));
 
@@ -182,12 +257,21 @@ export default function CaregiversDashboard() {
 
     const vitalsHandler = (data) => {
       const newVital = {
-        time: data.time || data.timeRecorded,
-        heartRate: data.heartRate,
-        respiration: data.respirationRate,
-        movement: data.movement
+        time: new Date(data.time || data.timeRecorded).toISOString(),
+        heartRate: data.heartRate ?? 0,
+        respirationRate: data.respirationRate ?? 0,
+        movement: data.movement ?? 0
       };
-      setVitals(prev => [...prev.slice(-99), newVital]);
+
+      setVitals(prev => {
+        const exists = prev.some(v => v.time === newVital.time);
+        if (!exists) {
+          const updated = [...prev, newVital].sort((a, b) => new Date(a.time) - new Date(b.time));
+          return updated.slice(-200);
+        }
+        return prev;
+      });
+
       setLatest(newVital);
     };
 
@@ -196,21 +280,29 @@ export default function CaregiversDashboard() {
       setUnreadAlerts(prev => prev + 1);
     };
 
-    const messageHandler = (msg) => {
-      setMessages(prev => [...prev, msg]);
-    };
+    
 
     socket.on("new-vital", vitalsHandler);
     socket.on("alert", alertHandler);
-    socket.on("message", messageHandler);
+    
 
     return () => {
       socket.emit("leave-patient-room", selectedPatient);
       socket.off("new-vital", vitalsHandler);
       socket.off("alert", alertHandler);
-      socket.off("message", messageHandler);
+      
     };
   }, [selectedPatient, selectedTimeRange]);
+
+  // Calculate clinical analysis - USE FRIENDLY LABELS FOR CAREGIVERS
+  useEffect(() => {
+    if (vitals.length > 0) {
+      console.log("Analyzing", vitals.length, "vitals for caregiver clinical data");
+      // ✅ Use friendly labels for caregivers (true = user-friendly)
+      const analysis = ClinicalAnalysis.analyzeVitals(vitals, true);
+      setClinicalData(analysis);
+    }
+  }, [vitals]);
 
   // Handlers
   const handleLogout = () => {
@@ -223,25 +315,29 @@ export default function CaregiversDashboard() {
     if (!newMessage.trim() || !selectedPatient) return;
     const msg = {
       patientId: selectedPatient,
-      sender: "caregiver",
+      senderId: "caregiver",
+      receiver: "doctor",
       text: newMessage,
       createdAt: new Date().toISOString()
     };
     socket.emit("message", msg);
     axios.post(`/api/v1/messages`, msg).catch(err => console.error(err));
-    setMessages(prev => [...prev, msg]);
+    
     setNewMessage("");
   };
 
   const markAlertsRead = () => {
     if (!selectedPatient) return;
-    axios.post(`/api/v1/alerts/${selectedPatient}/mark-read`)
-      .then(() => {
-        setAlerts(prev => prev.map(a => ({ ...a, read: true })));
-        setUnreadAlerts(0);
-      })
-      .catch(err => console.error(err));
+    axios.post(`/api/v1/alerts/${selectedPatient}/mark-read`, {
+      alertIds: alerts.map(a => a.id || a.key) // send actual alert IDs
+    })
+    .then(() => {
+      setAlerts(prev => prev.map(a => ({ ...a, read: true })));
+      setUnreadAlerts(0);
+    })
+    .catch(err => console.error(err));
   };
+
 
   const acknowledgeAlert = (alertId) => {
     axios.post(`/api/v1/alerts/${alertId}/acknowledge`, { patientId: selectedPatient })
@@ -254,25 +350,25 @@ export default function CaregiversDashboard() {
       .catch(err => console.error(err));
   };
 
-  const getVitalStatus = (type, value) => {
-    if (type === 'heartRate') {
-      if (value < 60) return 'text-blue-500';
-      if (value > 100) return 'text-red-500';
-      return 'text-green-500';
+  // Custom Y-axis tick renderer for clinical zones
+  const renderClinicalYAxis = (vitalType) => (props) => {
+    const { x, y, payload } = props;
+    const ranges = ClinicalAnalysis.CLINICAL_RANGES[vitalType];
+    
+    let color = theme === "dark" ? '#9ca3af' : '#6b7280';
+    
+    for (const range of Object.values(ranges)) {
+      if (payload.value >= range.min && payload.value <= range.max) {
+        color = range.color;
+        break;
+      }
     }
-    if (type === 'respiration') {
-      if (value < 12) return 'text-blue-500';
-      if (value > 20) return 'text-red-500';
-      return 'text-green-500';
-    }
-    return 'text-gray-500';
-  };
-
-  const chartProps = {
-    strokeWidth: 2.5,
-    dot: false,
-    isAnimationActive: true,
-    type: "monotone",
+    
+    return (
+      <text x={x} y={y} fill={color} fontSize={11} textAnchor="end" dy={4}>
+        {payload.value}
+      </text>
+    );
   };
 
   return (
@@ -283,10 +379,12 @@ export default function CaregiversDashboard() {
           <h1 className="text-2xl font-bold mb-1">Caregiver Portal</h1>
           <p className="text-sm text-green-200">Patient Care System</p>
           
-          {/* Connection Status */}
-          <div className="mt-3 flex items-center gap-2 text-xs">
-            
-          </div>
+          {socketConnected && (
+            <div className="mt-3 flex items-center gap-2 text-xs">
+              <FaCircle className="text-green-300 animate-pulse" />
+              <span>Connected</span>
+            </div>
+          )}
         </div>
 
         {/* Patient Quick List */}
@@ -339,12 +437,17 @@ export default function CaregiversDashboard() {
           
           <button 
             onClick={() => setTab("messages")} 
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all relative ${
               tab === "messages" ? "bg-green-600 shadow-lg" : "hover:bg-green-600"
             }`}
           >
             <FaEnvelope className="text-lg" />
             <span className="font-medium">Messages</span>
+            {unreadMessages > 0 && (
+              <span className="absolute right-3 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                {unreadMessages}
+              </span>
+            )}
           </button>
           
           <button 
@@ -398,7 +501,7 @@ export default function CaregiversDashboard() {
               </header>
 
               {/* Controls */}
-              <div className={`p-6 rounded-xl shadow-sm ${theme === "dark" ? "bg-gray-800" : "bg-white"}`}>
+              <div className={cardStyle}>
                 <div className="flex items-center gap-4 flex-wrap">
                   <div className="flex items-center gap-3 flex-1">
                     <label className="font-semibold text-sm whitespace-nowrap">Patient:</label>
@@ -441,7 +544,7 @@ export default function CaregiversDashboard() {
 
               {/* Patient Info */}
               {selectedPatient && profile?.name && (
-                <div className={`p-6 rounded-xl shadow-sm ${theme === "dark" ? "bg-gray-800" : "bg-white"}`}>
+                <div className={cardStyle}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
@@ -467,123 +570,218 @@ export default function CaregiversDashboard() {
                 </div>
               )}
 
-              {/* Vital Signs Cards */}
-              {selectedPatient && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className={`p-6 rounded-xl shadow-sm ${theme === "dark" ? "bg-gray-800" : "bg-white"}`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-full bg-red-100 dark:bg-red-900 flex items-center justify-center">
-                          <FaHeartbeat className="text-2xl text-red-500" />
-                        </div>
-                        <div>
-                          <p className={`text-sm font-medium ${theme === "dark" ? "text-gray-400" : "text-gray-600"}`}>
-                            Heart Rate
-                          </p>
-                          <p className="text-4xl font-bold mt-1">{latest?.heartRate || "--"}</p>
-                          <p className={`text-xs ${theme === "dark" ? "text-gray-500" : "text-gray-500"}`}>bpm</p>
-                        </div>
-                      </div>
-                      {latest?.heartRate > 0 && (
-                        <FaExclamationTriangle 
-                          className={`text-2xl ${getVitalStatus('heartRate', latest.heartRate)}`}
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  <div className={`p-6 rounded-xl shadow-sm ${theme === "dark" ? "bg-gray-800" : "bg-white"}`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                          <FaLungs className="text-2xl text-blue-500" />
-                        </div>
-                        <div>
-                          <p className={`text-sm font-medium ${theme === "dark" ? "text-gray-400" : "text-gray-600"}`}>
-                            Respiration
-                          </p>
-                          <p className="text-4xl font-bold mt-1">{latest?.respiration || "--"}</p>
-                          <p className={`text-xs ${theme === "dark" ? "text-gray-500" : "text-gray-500"}`}>br/min</p>
-                        </div>
-                      </div>
-                      {latest?.respiration > 0 && (
-                        <FaExclamationTriangle 
-                          className={`text-2xl ${getVitalStatus('respiration', latest.respiration)}`}
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  <div className={`p-6 rounded-xl shadow-sm ${theme === "dark" ? "bg-gray-800" : "bg-white"}`}>
-                    <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 rounded-full bg-yellow-100 dark:bg-yellow-900 flex items-center justify-center">
-                        <FaWalking className="text-2xl text-yellow-600 dark:text-yellow-300" />
-                      </div>
-                      <div>
-                        <p className={`text-sm font-medium ${theme === "dark" ? "text-gray-400" : "text-gray-600"}`}>
-                          Movement
-                        </p>
-                        <p className="text-4xl font-bold mt-1">{latest?.movement || "--"}</p>
-                        <p className={`text-xs ${theme === "dark" ? "text-gray-500" : "text-gray-500"}`}>activity</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-
-              {/*  Caregiver Support Assistant */}
-              {selectedPatient && (
-                <div className={`${cardStyle} mb-6`}>
-                  <h2 className="text-xl font-semibold mb-2">
-                     Caregiver Support Assistant
-                  </h2>
-
-                  <p className="text-sm opacity-75 mb-4">
-                     Get simple explanations of the patient’s vital signs and guidance on when to seek help.
-                  </p>
-
-                   <RagAssistant
-                      patientId={selectedPatient}
-                      role="caregiver"
-                      latestVitals={latest}
-                      historicalVitals={vitals}
-                      profile={profile}
-                    />
-                </div>
-              )}
-
-
-              {/* Charts - 2 Column Layout */}
-              {selectedPatient && !loading && vitals.length > 0 && (
-                <>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Heart Rate Chart */}
-                    <div className={`p-6 rounded-xl shadow-sm ${theme === "dark" ? "bg-gray-800" : "bg-white"}`}>
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <FaHeartbeat className="text-red-500 text-xl" />
-                          <h3 className="text-lg font-bold">Heart Rate</h3>
-                        </div>
-                        <span className={`text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-600"}`}>
-                          {vitals.length} readings
+              {/* Patient Status Summary - User Friendly */}
+              {selectedPatient && clinicalData && (
+                <div className={`${cardStyle} border-l-4`} style={{ borderColor: clinicalData.summary.statusColor }}>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-xl font-bold">Patient Status</h3>
+                        <span 
+                          className="px-3 py-1 rounded-full text-sm font-semibold text-white"
+                          style={{ backgroundColor: clinicalData.summary.statusColor }}
+                        >
+                          {clinicalData.summary.overallStatus}
                         </span>
                       </div>
-                      <ResponsiveContainer width="100%" height={200}>
+                      <p className="text-sm mb-3">{clinicalData.summary.statusMessage}</p>
+                      
+                      {clinicalData.summary.alerts.length > 0 && (
+                        <div className="space-y-2">
+                          {clinicalData.summary.alerts.map((alert, i) => (
+                            <div key={i} className="flex items-start gap-2 text-sm">
+                              <FaExclamationTriangle className="text-orange-500 mt-0.5" />
+                              <span>{alert.message}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {clinicalData.newsScore && (
+                      <div className="text-right">
+                        <p className="text-xs opacity-75">{clinicalData.newsScore.friendlyLevel}</p>
+                        <p 
+                          className="text-3xl font-bold"
+                          style={{ color: clinicalData.newsScore.color }}
+                        >
+                          {clinicalData.newsScore.score}
+                        </p>
+                        <p className="text-xs mt-1 max-w-xs">{clinicalData.newsScore.friendlyAction}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Vital Signs Cards with User-Friendly Info */}
+              {selectedPatient && clinicalData && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Heart Rate Card */}
+                  <div className={cardStyle}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-3">
+                        <div className="bg-red-100 dark:bg-red-900 p-3 rounded-full">
+                          <FaHeartbeat className="text-red-500 text-2xl" />
+                        </div>
+                        <div>
+                          <p className="text-sm opacity-75">Heart Rate</p>
+                          <p className="text-3xl font-bold">{latest?.heartRate ?? "--"}</p>
+                          <p className="text-xs opacity-75">beats per minute</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div 
+                      className="px-2 py-1 rounded text-xs font-semibold text-white mb-2"
+                      style={{ backgroundColor: clinicalData.heartRate.zone.color }}
+                    >
+                      {clinicalData.heartRate.zone.friendlyLabel}
+                    </div>
+                    <p className="text-xs opacity-75">{clinicalData.heartRate.trend.friendlyMessage}</p>
+                  </div>
+
+                  {/* Respiration Card */}
+                  <div className={cardStyle}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-3">
+                        <div className="bg-blue-100 dark:bg-blue-900 p-3 rounded-full">
+                          <FaLungs className="text-blue-500 text-2xl" />
+                        </div>
+                        <div>
+                          <p className="text-sm opacity-75">Breathing Rate</p>
+                          <p className="text-3xl font-bold">{latest?.respirationRate ?? "--"}</p>
+                          <p className="text-xs opacity-75">breaths per minute</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div 
+                      className="px-2 py-1 rounded text-xs font-semibold text-white mb-2"
+                      style={{ backgroundColor: clinicalData.respirationRate.zone.color }}
+                    >
+                      {clinicalData.respirationRate.zone.friendlyLabel}
+                    </div>
+                    <p className="text-xs opacity-75">{clinicalData.respirationRate.trend.friendlyMessage}</p>
+                  </div>
+
+                  {/* Movement Card */}
+                  <div className={cardStyle}>
+                    <div className="flex items-center space-x-3 mb-3">
+                      <div className="bg-green-100 dark:bg-green-900 p-3 rounded-full">
+                        <FaWalking className="text-green-500 text-2xl" />
+                      </div>
+                      <div>
+                        <p className="text-sm opacity-75">Movement</p>
+                        <p className="text-3xl font-bold">{latest?.movement ?? "--"}</p>
+                        <p className="text-xs opacity-75">{clinicalData.movement.zone.friendlyLabel}</p>
+                      </div>
+                    </div>
+                    <div 
+                      className="px-2 py-1 rounded text-xs font-semibold text-white mb-2"
+                      style={{ backgroundColor: clinicalData.movement.zone.color }}
+                    >
+                      {clinicalData.movement.zone.label}
+                    </div>
+                    <p className="text-xs opacity-75">{clinicalData.movement.zone.description}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Caregiver Support Assistant */}
+              {selectedPatient && (
+                <div className={cardStyle}>
+                  <h2 className="text-xl font-semibold mb-2">Caregiver Support Assistant</h2>
+                  <p className="text-sm opacity-75 mb-4">
+                    Get simple explanations of the patient's vital signs and guidance on when to seek help.
+                  </p>
+                  <RagAssistant
+                    patientId={selectedPatient}
+                    role="caregiver"
+                    latestVitals={latest}
+                    historicalVitals={vitals}
+                    profile={profile}
+                  />
+                </div>
+              )}
+
+              {/* ENHANCED CHARTS WITH CLINICAL ANALYSIS */}
+              {selectedPatient && !loading && vitals.length > 0 && clinicalData && (
+                <>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    {/* Enhanced Heart Rate Chart */}
+                    <div className={cardStyle}>
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-3">
+                            <FaHeartbeat className="text-red-500 text-xl" />
+                            <h3 className="text-lg font-bold">Heart Rate Monitor</h3>
+                          </div>
+                           <p className="text-xs text-gray-400 mt-1">
+                            Normal range: 60–100 bpm. Higher values may indicate stress, fever, or pain.
+                          </p>
+                          <div className="text-right">
+                            <span className="text-2xl font-bold text-red-500">{latest.heartRate}</span>
+                            <span className="text-sm text-gray-500 ml-1">bpm</span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 flex-wrap text-sm">
+                          <span 
+                            className="px-2 py-1 rounded text-xs font-semibold text-white"
+                            style={{ backgroundColor: clinicalData.heartRate.zone.color }}
+                          >
+                            {clinicalData.heartRate.zone.friendlyLabel}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            {clinicalData.heartRate.trend.arrow} 
+                            <span className={`font-medium ${
+                              clinicalData.heartRate.trend.severity === 'high' ? 'text-red-500' : 
+                              clinicalData.heartRate.trend.severity === 'moderate' ? 'text-orange-500' : 
+                              'text-green-500'
+                            }`}>
+                              {clinicalData.heartRate.trend.trend}
+                            </span>
+                          </span>
+                          <span className="text-gray-600 dark:text-gray-400">
+                            Baseline: {clinicalData?.heartRate?.baseline?.median
+                              ? clinicalData.heartRate.baseline.median.toFixed(1)
+                              : "--"} bpm
+                          </span>
+                        </div>
+                      </div>
+
+                      <ResponsiveContainer width="100%" height={250}>
                         <LineChart data={vitals}>
-                          <CartesianGrid stroke={theme === "dark" ? "#374151" : "#e5e7eb"} strokeDasharray="3 3" />
+                          {/* Clinical Zone Backgrounds */}
+                          {Object.entries(ClinicalAnalysis.CLINICAL_RANGES.heartRate).map(([key, range]) => (
+                            <ReferenceArea
+                              key={key}
+                              y1={range.min}
+                              y2={range.max}
+                              fill={range.color}
+                              fillOpacity={0.08}
+                              strokeOpacity={0}
+                            />
+                          ))}
+                          
+                          <CartesianGrid 
+                            stroke={theme === "dark" ? "#374151" : "#e5e7eb"} 
+                            strokeDasharray="3 3" 
+                          />
+                          
                           <XAxis 
                             dataKey="time" 
-                            tickFormatter={formatTime} 
-                            tick={{ fill: theme === "dark" ? "#9ca3af" : "#6b7280", fontSize: 11 }} 
+                            tickFormatter={formatTime}
+                            tick={{ fill: theme === "dark" ? '#9ca3af' : '#6b7280', fontSize: 11 }}
                           />
+                          
                           <YAxis 
-                            domain={[40, 140]} 
-                            tick={{ fill: theme === "dark" ? "#9ca3af" : "#6b7280", fontSize: 11 }} 
-                            label={{ value: "bpm", angle: -90, position: 'insideLeft', fill: theme === "dark" ? "#9ca3af" : "#6b7280" }} 
+                            domain={[30, 140]}
+                            tick={renderClinicalYAxis('heartRate')}
+                            width={80}
                           />
+                          
                           <Tooltip 
-                            labelFormatter={formatDateTime} 
+                            labelFormatter={formatDateTime}
                             formatter={(value) => [`${value} bpm`, "Heart Rate"]}
                             contentStyle={{ 
                               backgroundColor: theme === "dark" ? "#1f2937" : "#ffffff",
@@ -591,39 +789,126 @@ export default function CaregiversDashboard() {
                               borderRadius: '8px'
                             }}
                           />
-                          <ReferenceLine y={60} stroke="#10b981" strokeDasharray="4 4" label={{ value: 'Low', fill: '#10b981', fontSize: 10 }} />
-                          <ReferenceLine y={100} stroke="#ef4444" strokeDasharray="4 4" label={{ value: 'High', fill: '#ef4444', fontSize: 10 }} />
-                          <Line {...chartProps}  type= "monotone" dataKey="heartRate" stroke="#ef4444" dot={false} />
+                          
+                          {/* Baseline Reference */}
+                          {clinicalData?.heartRate?.baseline?.median && (
+                            <ReferenceLine 
+                              y={clinicalData.heartRate.baseline.median} 
+                              stroke="#6B7280" 
+                              strokeDasharray="5 5"
+                              label={{ 
+                                value: `Baseline (${clinicalData.heartRate.baseline.median.toFixed(1)})`, 
+                                position: 'insideTopRight',
+                                fill: '#6B7280',
+                                fontSize: 10
+                              }}
+                            />
+                          )}
+                          
+                          <ReferenceLine y={60} stroke="#10B981" strokeDasharray="3 3" />
+                          <ReferenceLine y={100} stroke="#F59E0B" strokeDasharray="3 3" />
+                          
+                          <Line 
+                            {...chartProps} 
+                            dataKey="heartRate" 
+                            stroke="#ef4444" 
+                          />
                         </LineChart>
                       </ResponsiveContainer>
+
+                      <div className="mt-3 text-xs space-y-1">
+                        <div className="flex items-start gap-2">
+                          {clinicalData.heartRate.zone.friendlyLabel === 'Healthy Range' ? (
+                            <FaCheckCircle className="text-green-500 mt-0.5" />
+                          ) : (
+                            <FaExclamationTriangle className="text-yellow-500 mt-0.5" />
+                          )}
+                          <p className="text-gray-600 dark:text-gray-400">
+                            {clinicalData.heartRate.zone.description}
+                          </p>
+                        </div>
+                        <p className="text-gray-500">
+                          {vitals.length} readings | {clinicalData.heartRate.trend.friendlyMessage}
+                        </p>
+                      </div>
                     </div>
 
-                    {/* Respiration Chart */}
-                    <div className={`p-6 rounded-xl shadow-sm ${theme === "dark" ? "bg-gray-800" : "bg-white"}`}>
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <FaLungs className="text-blue-500 text-xl" />
-                          <h3 className="text-lg font-bold">Respiration</h3>
+                    {/* Enhanced Respiration Chart */}
+                    <div className={cardStyle}>
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-3">
+                            <FaLungs className="text-blue-500 text-xl" />
+                            <h3 className="text-lg font-bold">Breathing Rate</h3>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1">
+                            Normal range: 12–20 breaths per minute. Faster breathing may signal distress.
+                          </p>
+
+                          <div className="text-right">
+                            <span className="text-2xl font-bold text-blue-500">{latest.respirationRate}</span>
+                            <span className="text-sm text-gray-500 ml-1">br/min</span>
+                          </div>
                         </div>
-                        <span className={`text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-600"}`}>
-                          {vitals.length} readings
-                        </span>
+                        
+                        <div className="flex items-center gap-2 flex-wrap text-sm">
+                          <span 
+                            className="px-2 py-1 rounded text-xs font-semibold text-white"
+                            style={{ backgroundColor: clinicalData.respirationRate.zone.color }}
+                          >
+                            {clinicalData.respirationRate.zone.friendlyLabel}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            {clinicalData.respirationRate.trend.arrow} 
+                            <span className={`font-medium ${
+                              clinicalData.respirationRate.trend.severity === 'high' ? 'text-red-500' : 
+                              clinicalData.respirationRate.trend.severity === 'moderate' ? 'text-orange-500' : 
+                              'text-green-500'
+                            }`}>
+                              {clinicalData.respirationRate.trend.trend}
+                            </span>
+                          </span>
+                          <span className="text-gray-600 dark:text-gray-400">
+                            Baseline: {clinicalData?.respirationRate?.baseline?.median
+                              ? clinicalData.respirationRate.baseline.median.toFixed(1)
+                              : "--"} br/min
+                          </span>
+                        </div>
                       </div>
-                      <ResponsiveContainer width="100%" height={200}>
+
+                      <ResponsiveContainer width="100%" height={250}>
                         <LineChart data={vitals}>
-                          <CartesianGrid stroke={theme === "dark" ? "#374151" : "#e5e7eb"} strokeDasharray="3 3" />
+                          {/* Clinical Zone Backgrounds */}
+                          {Object.entries(ClinicalAnalysis.CLINICAL_RANGES.respirationRate).map(([key, range]) => (
+                            <ReferenceArea
+                              key={key}
+                              y1={range.min}
+                              y2={range.max}
+                              fill={range.color}
+                              fillOpacity={0.08}
+                              strokeOpacity={0}
+                            />
+                          ))}
+                          
+                          <CartesianGrid 
+                            stroke={theme === "dark" ? "#374151" : "#e5e7eb"} 
+                            strokeDasharray="3 3" 
+                          />
+                          
                           <XAxis 
                             dataKey="time" 
-                            tickFormatter={formatTime} 
-                            tick={{ fill: theme === "dark" ? "#9ca3af" : "#6b7280", fontSize: 11 }} 
+                            tickFormatter={formatTime}
+                            tick={{ fill: theme === "dark" ? '#9ca3af' : '#6b7280', fontSize: 11 }}
                           />
+                          
                           <YAxis 
-                            domain={[8, 30]} 
-                            tick={{ fill: theme === "dark" ? "#9ca3af" : "#6b7280", fontSize: 11 }} 
-                            label={{ value: "br/min", angle: -90, position: 'insideLeft', fill: theme === "dark" ? "#9ca3af" : "#6b7280" }} 
+                            domain={[6, 35]}
+                            tick={renderClinicalYAxis('respirationRate')}
+                            width={80}
                           />
+                          
                           <Tooltip 
-                            labelFormatter={formatDateTime} 
+                            labelFormatter={formatDateTime}
                             formatter={(value) => [`${value} br/min`, "Respiration"]}
                             contentStyle={{ 
                               backgroundColor: theme === "dark" ? "#1f2937" : "#ffffff",
@@ -631,49 +916,143 @@ export default function CaregiversDashboard() {
                               borderRadius: '8px'
                             }}
                           />
-                          <ReferenceLine y={12} stroke="#10b981" strokeDasharray="4 4" label={{ value: 'Low', fill: '#10b981', fontSize: 10 }} />
-                          <ReferenceLine y={20} stroke="#ef4444" strokeDasharray="4 4" label={{ value: 'High', fill: '#ef4444', fontSize: 10 }} />
-                          <Line {...chartProps} type="monotone" dataKey="respiration" stroke="#3b82f6" dot={false}/>
+                          
+                          {clinicalData?.respirationRate?.baseline?.median && (
+                            <ReferenceLine
+                              y={clinicalData.respirationRate.baseline.median}
+                              stroke="#6B7280"
+                              strokeDasharray="5 5"
+                              label={{
+                                value: `Baseline (${clinicalData.respirationRate.baseline.median.toFixed(1)})`,
+                                position: 'insideTopRight',
+                                fill: '#6B7280',
+                                fontSize: 10,
+                              }}
+                            />
+                          )}
+                          
+                          <ReferenceLine y={12} stroke="#10B981" strokeDasharray="3 3" />
+                          <ReferenceLine y={20} stroke="#F59E0B" strokeDasharray="3 3" />
+                          
+                          <Line 
+                            {...chartProps} 
+                            dataKey="respirationRate" 
+                            stroke="#3b82f6" 
+                          />
                         </LineChart>
                       </ResponsiveContainer>
+
+                      <div className="mt-3 text-xs space-y-1">
+                        <div className="flex items-start gap-2">
+                          {clinicalData.respirationRate.zone.friendlyLabel === 'Healthy Range' ? (
+                            <FaCheckCircle className="text-green-500 mt-0.5" />
+                          ) : (
+                            <FaExclamationTriangle className="text-yellow-500 mt-0.5" />
+                          )}
+                          <p className="text-gray-600 dark:text-gray-400">
+                            {clinicalData.respirationRate.zone.description}
+                          </p>
+                        </div>
+                        <p className="text-gray-500">
+                          {vitals.length} readings | {clinicalData.respirationRate.trend.friendlyMessage}
+                        </p>
+                      </div>
                     </div>
                   </div>
 
                   {/* Movement Chart - Full Width */}
-                  <div className={`p-6 rounded-xl shadow-sm ${theme === "dark" ? "bg-gray-800" : "bg-white"}`}>
+                  <div className={cardStyle}>
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <FaWalking className="text-green-500 text-xl" />
                         <h3 className="text-lg font-bold">Movement Activity</h3>
                       </div>
-                      <span className={`text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-600"}`}>
-                        {vitals.length} readings
-                      </span>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Activity scale: 0 = no movement, 1 = minimal, 2 = light, 3 = high activity.
+                      </p>
+
+                      <div className="text-right">
+                        <span 
+                          className="px-3 py-1 rounded text-xs font-semibold text-white"
+                          style={{ backgroundColor: clinicalData.movement.zone.color }}
+                        >
+                          {clinicalData.movement.zone.friendlyLabel}
+                        </span>
+                      </div>
                     </div>
-                    <ResponsiveContainer width="67%" height={200}>
+                    
+                    <ResponsiveContainer width="100%" height={250}>
                       <LineChart data={vitals}>
-                        <CartesianGrid stroke={theme === "dark" ? "#374151" : "#e5e7eb"} strokeDasharray="3 3" />
+                        {/* Movement Zone Backgrounds */}
+                        {Object.entries(ClinicalAnalysis.CLINICAL_RANGES.movement).map(([key, range]) => (
+                          <ReferenceArea
+                            key={key}
+                            y1={range.min}
+                            y2={range.max}
+                            fill={range.color}
+                            fillOpacity={0.08}
+                            strokeOpacity={0}
+                          />
+                        ))}
+                        
+                        <CartesianGrid 
+                          stroke={theme === "dark" ? "#374151" : "#e5e7eb"} 
+                          strokeDasharray="3 3" 
+                        />
                         <XAxis 
                           dataKey="time" 
-                          tickFormatter={formatTime} 
-                          tick={{ fill: theme === "dark" ? "#9ca3af" : "#6b7280", fontSize: 11 }} 
+                          tickFormatter={formatTime}
+                          tick={{ fill: theme === "dark" ? '#9ca3af' : '#6b7280', fontSize: 11 }}
                         />
                         <YAxis 
-                          domain={[0, 'dataMax + 1']} 
-                          tick={{ fill: theme === "dark" ? "#9ca3af" : "#6b7280", fontSize: 11 }} 
+                          domain={[0, 'dataMax + 1']}
+                          tick={{ fill: theme === "dark" ? '#9ca3af' : '#6b7280', fontSize: 11 }}
                         />
                         <Tooltip 
-                          labelFormatter={formatDateTime} 
-                          formatter={(value) => [value, "Movement"]}
+                          labelFormatter={formatDateTime}
+                          formatter={(value) => {
+                            const zone = Object.values(ClinicalAnalysis.CLINICAL_RANGES.movement).find(
+                              r => value >= r.min && value <= r.max
+                            );
+                            return [zone ? zone.friendlyLabel : value, "Movement"];
+                          }}
                           contentStyle={{ 
                             backgroundColor: theme === "dark" ? "#1f2937" : "#ffffff",
                             border: `1px solid ${theme === "dark" ? "#374151" : "#e5e7eb"}`,
                             borderRadius: '8px'
                           }}
                         />
-                        <Line {...chartProps} dataKey="movement" stroke="#10b981" />
+
+                        {clinicalData?.movement?.baseline?.median && (
+                          <ReferenceLine
+                            y={clinicalData.movement.baseline.median}
+                            stroke="#6B7280"
+                            strokeDasharray="5 5"
+                            label={{
+                              value: `Baseline (${clinicalData.movement.baseline.median.toFixed(1)})`,
+                              position: 'insideTopRight',
+                              fill: '#6B7280',
+                              fontSize: 10,
+                            }}
+                          />
+                        )}
+
+                        <Line 
+                          {...chartProps} 
+                          dataKey="movement" 
+                          stroke="#22c55e" 
+                        />
                       </LineChart>
                     </ResponsiveContainer>
+
+                    <div className="mt-3 text-xs">
+                      <p className="text-gray-600 dark:text-gray-400">
+                        {clinicalData.movement.zone.description}
+                      </p>
+                      <p className="text-gray-500 mt-1">
+                        Current activity: {clinicalData.movement.zone.friendlyLabel}
+                      </p>
+                    </div>
                   </div>
                 </>
               )}
@@ -793,29 +1172,41 @@ export default function CaregiversDashboard() {
                     <p className="font-semibold">Conversation about: {profile.name || selectedPatient}</p>
                   </div>
 
-                  <div className="space-y-3 mb-6 max-h-96 overflow-y-auto">
+                  <div className="space-y-3 mb-4 max-h-96 overflow-y-auto px-2">
                     {messages.length > 0 ? (
                       messages.map((msg, i) => (
-                        <div key={i} className={`flex ${msg.sender === 'caregiver' ? 'justify-end' : 'justify-start'}`}>
-                          <div className={`max-w-md px-4 py-3 rounded-lg ${
-                            msg.sender === 'caregiver' 
-                              ? 'bg-green-600 text-white' 
-                              : theme === "dark" ? 'bg-gray-700' : 'bg-gray-200'
-                          }`}>
-                            <p className="text-sm font-semibold mb-1">
-                              {msg.sender === 'caregiver' ? 'You' : 'Doctor'}
+                        <div
+                          key={i}
+                          className={`flex ${msg.senderId === 'caregiver' ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div
+                            className={`max-w-xs lg:max-w-md px-4 py-2 rounded-xl shadow-sm ${
+                              msg.senderId === 'caregiver'
+                                ? 'bg-blue-600 text-white rounded-br-none'
+                                : theme === "dark"
+                                  ? 'bg-gray-700 text-white rounded-bl-none'
+                                  : 'bg-gray-200 text-gray-900 rounded-bl-none'
+                            }`}
+                          >
+                            <p className="text-xs font-semibold mb-1">
+                              {msg.senderId === 'caregiver' ? 'You (Caregiver)' : 'Doctor'}
                             </p>
-                            <p>{msg.text}</p>
-                            <p className="text-xs opacity-75 mt-1">{formatDateTime(msg.createdAt)}</p>
+                            <p className="text-sm">{msg.text}</p>
+                            <p className="text-xs opacity-50 mt-1 text-right">
+                              {formatDateTime(msg.createdAt)}
+                            </p>
                           </div>
                         </div>
                       ))
                     ) : (
-                      <p className={`text-center py-8 ${theme === "dark" ? "text-gray-400" : "text-gray-600"}`}>
-                        No messages yet.
-                      </p>
+                      <div className="text-center py-8 opacity-50 text-sm">
+                        No messages yet. Start a conversation with the caregiver.
+                      </div>
                     )}
+
+                    <div ref={messagesEndRef}></div>
                   </div>
+
 
                   <div className="flex gap-3">
                     <input

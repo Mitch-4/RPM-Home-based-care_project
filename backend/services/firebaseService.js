@@ -98,6 +98,13 @@ const pushAlert = async (alert) => {
   return { id: ref.key, ...alert };
 };
 
+
+// ✅ New helper: mark multiple alerts as read
+const updateAlerts = async (patientId, updates) => {
+  const ref = db.ref(`alerts/${patientId}`);
+  return ref.update(updates);
+};
+
 // --- Exports ---
 module.exports = {
   db,
@@ -112,4 +119,5 @@ module.exports = {
   getAlerts,
   getAllPatientsAlerts,
   pushAlert,
+  updateAlerts,
 };
