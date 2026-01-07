@@ -20,3 +20,4 @@ module.exports = function auth(req, res, next) {
     return res.status(401).json({ ok: false, error: "Invalid token" });
   }
 };
+
