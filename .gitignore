@@ -26,4 +26,6 @@ backend/*.json
 
 # Firebase frontend config
 src/firebase.js
+
+# VS Code workspace settings
 .vscode/

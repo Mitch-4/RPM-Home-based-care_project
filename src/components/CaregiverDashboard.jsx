@@ -191,7 +191,9 @@ export default function CaregiverDashboard() {
           time: new Date(v.timeRecorded || v.time).toISOString(),
           heartRate: v.heartRate ?? 0,  // ✅ FIXED: Using heartRate (consistent with doctor)
           respirationRate: v.respirationRate ?? 0,  // ✅ FIXED: Using respirationRate (consistent with doctor)
-          movement: v.movement ?? 0
+          movement: v.movement ?? 0,
+          presence: v.presence ?? 0,
+          movementRange: v.movementRange ?? 0
         }));
         
         mapped.sort((a, b) => new Date(a.time) - new Date(b.time));
@@ -218,7 +220,9 @@ export default function CaregiverDashboard() {
           time: l.timeRecorded || l.time,
           heartRate: l.heartRate ?? 0,
           respirationRate: l.respirationRate ?? 0,
-          movement: l.movement ?? 0
+          movement: l.movement ?? 0,
+          presence: l.presence ?? 0,
+          movementRange: l.movementRange ?? 0
         };
         setLatest(latestVitals);
 
@@ -256,20 +260,30 @@ export default function CaregiverDashboard() {
     socket.emit("join-patient-room", selectedPatient);
 
     const vitalsHandler = (data) => {
+      if (!data.timeRecorded) {
+        return;
+      }
+      if (data.heartRate === undefined && data.respirationRate === undefined) {
+        return;
+      }
       const newVital = {
-        time: new Date(data.time || data.timeRecorded).toISOString(),
+        time: new Date(data.timeRecorded).toISOString(),
         heartRate: data.heartRate ?? 0,
         respirationRate: data.respirationRate ?? 0,
-        movement: data.movement ?? 0
+        movement: data.movement ?? 0,
+        presence: data.presence ?? 0,
+        movementRange: data.movementRange ?? 0
       };
-
+      
       setVitals(prev => {
         const exists = prev.some(v => v.time === newVital.time);
-        if (!exists) {
-          const updated = [...prev, newVital].sort((a, b) => new Date(a.time) - new Date(b.time));
-          return updated.slice(-200);
-        }
-        return prev;
+        if (exists) return prev;
+
+        const updated = [...prev, newVital].sort((a, b) => 
+          new Date(a.time) - new Date(b.time)
+        );
+        
+        return updated.slice(-200);
       });
 
       setLatest(newVital);
@@ -839,7 +853,7 @@ export default function CaregiverDashboard() {
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-3">
                             <FaLungs className="text-blue-500 text-xl" />
-                            <h3 className="text-lg font-bold">Breathing Rate</h3>
+                            <h3 className="text-lg font-bold">Respiration Rate</h3>
                           </div>
                           <p className="text-xs text-gray-400 mt-1">
                             Normal range: 12–20 breaths per minute. Faster breathing may signal distress.
@@ -980,6 +994,27 @@ export default function CaregiverDashboard() {
                         </span>
                       </div>
                     </div>
+
+                    {/* Presence Timeline */}
+                      <div className="flex items-center gap-1 mb-3">
+                        <span className="text-xs text-gray-500 mr-2">Presence</span>
+                        <div className="flex w-80 h-3 rounded overflow-hidden">
+                          {vitals.map((v, i) => (
+                            <div
+                              key={i}
+                              className={`flex-1 ${
+                                v.presence === 1
+                                  ? "bg-teal-500"
+                                  : "bg-gray-400 dark:bg-gray-600"
+                              }`}
+                              title={`${formatDateTime(v.time)} — ${
+                                v.presence === 1 ? "Present" : "Absent"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    
                     
                     <ResponsiveContainer width="100%" height={250}>
                       <LineChart data={vitals}>
@@ -1042,6 +1077,18 @@ export default function CaregiverDashboard() {
                           dataKey="movement" 
                           stroke="#22c55e" 
                         />
+                        <Line
+                          dataKey="movementRange"
+                          stroke="#0ea5e9"          // calm blue
+                          strokeWidth={1.5}
+                          dot={false}
+                          isAnimationActive={false}
+                          yAxisId={0}
+                          name="Movement Intensity"
+                        />
+
+
+                      
                       </LineChart>
                     </ResponsiveContainer>
 
