@@ -617,7 +617,7 @@ export default function DoctorDashboard() {
                         <FaWalking className="text-green-500 text-2xl" />
                       </div>
                       <div>
-                        <p className="text-sm opacity-75">Movement</p>
+                        <p className="text-sm opacity-75">Movement Index</p>
                         <p className="text-3xl font-bold">{latest?.movement ?? "--"}</p>
                         <p className="text-xs opacity-75">activity level</p>
                       </div>

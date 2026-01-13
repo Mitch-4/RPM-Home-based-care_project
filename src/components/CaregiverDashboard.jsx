@@ -662,7 +662,7 @@ export default function CaregiverDashboard() {
                           <FaLungs className="text-blue-500 text-2xl" />
                         </div>
                         <div>
-                          <p className="text-sm opacity-75">Breathing Rate</p>
+                          <p className="text-sm opacity-75">Respiration Rate</p>
                           <p className="text-3xl font-bold">{latest?.respirationRate ?? "--"}</p>
                           <p className="text-xs opacity-75">breaths per minute</p>
                         </div>
@@ -684,7 +684,7 @@ export default function CaregiverDashboard() {
                         <FaWalking className="text-green-500 text-2xl" />
                       </div>
                       <div>
-                        <p className="text-sm opacity-75">Movement</p>
+                        <p className="text-sm opacity-75">Movement Index</p>
                         <p className="text-3xl font-bold">{latest?.movement ?? "--"}</p>
                         <p className="text-xs opacity-75">{clinicalData.movement.zone.friendlyLabel}</p>
                       </div>
