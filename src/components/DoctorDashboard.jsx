@@ -157,7 +157,9 @@ export default function DoctorDashboard() {
           time: new Date(v.timeRecorded || v.time).toISOString(),
           heartRate: v.heartRate ?? 0,
           respirationRate: v.respirationRate ?? 0,
-          movement: v.movement ?? 0
+          movement: v.movement ?? 0,
+          presence: v.presence ?? 0,          // ✅ ADD
+          movementRange: v.movementRange ?? 0 // (we'll graph later)
         }));
 
         mapped.sort((a, b) => new Date(a.time) - new Date(b.time));
@@ -184,7 +186,9 @@ export default function DoctorDashboard() {
           time: l.timeRecorded || l.time,
           heartRate: l.heartRate ?? 0,
           respirationRate: l.respirationRate ?? 0,
-          movement: l.movement ?? 0
+          movement: l.movement ?? 0,
+          presence: l.presence ?? 0,          // ✅ ADD
+          movementRange: l.movementRange ?? 0 // keep for later
         };
         setLatest(latestVitals);
 
@@ -222,20 +226,30 @@ export default function DoctorDashboard() {
     socket.emit("join-patient-room", selectedPatient);
 
     const vitalsHandler = (data) => {
+      if (!data.timeRecorded) {
+        return;
+      }
+      if (data.heartRate === undefined && data.respirationRate === undefined) {
+        return;
+      }
       const newVital = {
-        time: new Date(data.time || data.timeRecorded).toISOString(),
+        time: new Date(data.timeRecorded).toISOString(),
         heartRate: data.heartRate ?? 0,
         respirationRate: data.respirationRate ?? 0,
-        movement: data.movement ?? 0
+        movement: data.movement ?? 0,
+        presence: data.presence ?? 0,          // ✅ ADD
+        movementRange: data.movementRange ?? 0 // store now, graph later
       };
-
+      
       setVitals(prev => {
         const exists = prev.some(v => v.time === newVital.time);
-        if (!exists) {
-          const updated = [...prev, newVital].sort((a, b) => new Date(a.time) - new Date(b.time));
-          return updated.slice(-200); // Keep last 200 readings
-        }
-        return prev;
+        if (exists) return prev;
+
+        const updated = [...prev, newVital].sort((a, b) => 
+          new Date(a.time) - new Date(b.time)
+        );
+        
+        return updated.slice(-200);
       });
 
       setLatest(newVital);
@@ -603,7 +617,7 @@ export default function DoctorDashboard() {
                         <FaWalking className="text-green-500 text-2xl" />
                       </div>
                       <div>
-                        <p className="text-sm opacity-75">Movement</p>
+                        <p className="text-sm opacity-75">Movement Index</p>
                         <p className="text-3xl font-bold">{latest?.movement ?? "--"}</p>
                         <p className="text-xs opacity-75">activity level</p>
                       </div>
@@ -904,7 +918,6 @@ export default function DoctorDashboard() {
                       <p className="text-xs text-gray-400 mt-1">
                         Activity scale: 0 = no movement, 1 = minimal, 2 = light, 3 = high activity.
                       </p>
-
                       <div className="text-right">
                         <span 
                           className="px-3 py-1 rounded text-xs font-semibold text-white"
@@ -914,6 +927,26 @@ export default function DoctorDashboard() {
                         </span>
                       </div>
                     </div>
+                    
+                    {/* Presence Timeline */}
+                      <div className="flex items-center gap-1 mb-3">
+                        <span className="text-xs text-gray-500 mr-2">Presence</span>
+                        <div className="flex w-80 h-3 rounded overflow-hidden">
+                          {vitals.map((v, i) => (
+                            <div
+                              key={i}
+                              className={`flex-1 ${
+                                v.presence === 1
+                                  ? "bg-teal-500"
+                                  : "bg-gray-400 dark:bg-gray-600"
+                              }`}
+                              title={`${formatDateTime(v.time)} — ${
+                                v.presence === 1 ? "Present" : "Absent"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </div>
                     
                     <ResponsiveContainer width="100%" height={250}>
                       <LineChart data={vitals}>
@@ -976,6 +1009,16 @@ export default function DoctorDashboard() {
                           dataKey="movement" 
                           stroke="#22c55e" 
                         />
+                        <Line
+                          dataKey="movementRange"
+                          stroke="#0ea5e9"          // calm blue
+                          strokeWidth={1.5}
+                          dot={false}
+                          isAnimationActive={false}
+                          yAxisId={0}
+                          name="Movement Intensity"
+                        />
+
                       </LineChart>
                     </ResponsiveContainer>
 

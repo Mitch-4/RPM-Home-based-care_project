@@ -88,7 +88,7 @@ export default function RagAssistant({ patientId, role = "doctor", theme = "ligh
       />
 
       <button onClick={askRag} disabled={loading}>
-        {loading ? "Analyzing..." : "Ask AI"}
+        {loading ? "Analyzing..." : "Query"}
       </button>
 
       <style>{`
