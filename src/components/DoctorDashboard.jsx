@@ -930,7 +930,7 @@ export default function DoctorDashboard() {
                     
                     {/* Presence Timeline */}
                       <div className="flex items-center gap-1 mb-3">
-                        <span className="text-xs text-gray-500 mr-2">Presence</span>
+                        <span className="text-l text-white-500 font-bold mr-2">Presence</span>
                         <div className="flex w-80 h-3 rounded overflow-hidden">
                           {vitals.map((v, i) => (
                             <div
