@@ -1,5 +1,5 @@
 // backend/demoSimulator.js
-// CLEAN + SYNCHRONIZED VERSION
+// CLEAN + SYNCHRONIZED VERSION (GRAPH + TIMESTAMP FIXED)
 // Values displayed = alerts generated (1:1 mapping)
 
 const { db } = require("./services/firebaseService");
@@ -13,7 +13,7 @@ const THRESHOLDS = {
   respirationRate: { min: 12, max: 20 }
 };
 
-// Scenarios (unchanged — just stabilized)
+// Scenarios
 const SCENARIOS = [
   {
     name: "NORMAL - Baseline",
@@ -73,32 +73,48 @@ let readingCounter = 0;
 let currentScenarioIndex = 0;
 let scenarioStep = 0;
 
-// Startup
+// Utility: small realistic variation
+function vary(base, range = 2) {
+  return base + (Math.random() * range * 2 - range);
+}
+
+// Startup logs
 console.log("\n⚡ ========================================");
-console.log("🏥 DEMO SIMULATOR (SYNC MODE) STARTED");
+console.log("🏥 DEMO SIMULATOR (GRAPH MODE) STARTED");
 console.log("========================================");
 console.log(`📍 Patient ID: ${DEMO_PATIENT_ID}`);
 console.log(`⏱️ Interval: ${INTERVAL_SECONDS}s`);
 console.log("========================================\n");
 
-// Generate vitals (deterministic)
+// Generate vitals (graph-friendly)
 function generateVitals(scenario) {
-  const timestamp = new Date();
+  const now = new Date();
+
+  const heartRate = Math.round(vary(scenario.heartRate, 3));
+  const respirationRate = Math.round(vary(scenario.respirationRate, 2));
+  const movement = Math.max(0, Math.round(vary(scenario.movement, 1)));
 
   return {
     patientId: DEMO_PATIENT_ID,
-    heartRate: scenario.heartRate,
-    respirationRate: scenario.respirationRate,
-    movement: scenario.movement,
+
+    // Chart values
+    heartRate,
+    respirationRate,
+    movement,
     movementRange: scenario.movementRange,
+
     presence: 1,
-    timestamp: timestamp.toISOString(),
-    timeRecorded: timestamp.toISOString(),
+
+    // Time (BOTH formats — frontend can use either)
+    timestamp: now.toISOString(),
+    timeRecorded: now.toISOString(),
+    epoch: now.getTime(),
+
     source: "simulator"
   };
 }
 
-// Alert generation (exactly matches displayed values)
+// Alert generation (unchanged logic)
 function checkAndCreateAlerts(vitals) {
   const alerts = [];
 
@@ -131,7 +147,7 @@ function checkAndCreateAlerts(vitals) {
   }
 
   alerts.forEach(alert => {
-    db.ref(`patients/${DEMO_PATIENT_ID}/alerts`)
+    db.ref(`alerts`)
       .push(alert)
       .then(() =>
         console.log(`🚨 ALERT → ${alert.parameter}: ${alert.value}`)
@@ -155,11 +171,15 @@ const interval = setInterval(() => {
 
   const vitals = generateVitals(scenario);
 
-  db.ref(`patients/${DEMO_PATIENT_ID}/logs`)
-    .push(vitals)
+  // Push to logs AND update "latest" for frontend cards
+  const logsRef = db.ref(`patients/${DEMO_PATIENT_ID}/logs`);
+  const latestRef = db.ref(`patients/${DEMO_PATIENT_ID}/latest`);
+
+  logsRef.push(vitals)
+    .then(() => latestRef.set(vitals))  // ✅ Update latest
     .then(() => {
       console.log(
-        `📊 [${readingCounter}] HR:${vitals.heartRate} RR:${vitals.respirationRate} MOV:${vitals.movement}`
+        `📊 [${readingCounter}] HR:${vitals.heartRate} RR:${vitals.respirationRate} MOV:${vitals.movement} → latest updated`
       );
       checkAndCreateAlerts(vitals);
     })

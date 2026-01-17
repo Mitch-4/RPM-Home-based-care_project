@@ -183,8 +183,8 @@ function Login() {
 
         <div className="auth-image-section">
           <div className="auth-decorative-content">
-            <div className="auth-decorative-icon">🏥</div>
-            <h3>AI-Powered Healthcare</h3>
+            <div className="auth-decorative-icon"></div>
+            <h3>AI-Based Healthcare</h3>
             <p>
               Monitor patient vitals in real-time. Get instant alerts.
               Provide better care with our advanced monitoring system.

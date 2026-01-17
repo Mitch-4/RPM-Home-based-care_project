@@ -15,7 +15,7 @@ function Home() {
             <span className="highlight">better life.</span>
           </h1>
           <p className="home-description">
-            AI-Powered Remote Health Monitoring & Emergency Response Home-Based Care.
+            AI-Based Remote Health Monitoring & Emergency Response Home-Based Care.
             You can get the care you need 24/7 – be it online or in person. 
             You will be treated by caring specialist doctors.
           </p>
